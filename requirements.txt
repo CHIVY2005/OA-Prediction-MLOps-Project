@@ -1,0 +1,12 @@
+1. githubactions
+2. docker
+3. jupyernotebook
+4. os
+5. pandas
+6. numpy
+7. matplotlib
+8. seaborn
+9. cv2
+10. PIL
+11. torch
+12. torchvision
