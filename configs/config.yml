@@ -1,0 +1,19 @@
+data:
+  dataset_name: "kneeKL224"
+  num_classes: 5
+  class_names: ['0', '1', '2', '3', '4']
+  img_size: 224
+  fraction: 0.02  # 0.02 = Chế độ test nhanh (2%), 1.0 = Chạy full
+
+model:
+  name: "efficientnet_b0"
+  pretrained: true
+  freeze_feature_layers: true # True để train nhanh trên CPU
+
+train:
+  batch_size: 8
+  epochs: 1
+  learning_rate: 0.0001
+  device: "auto"  # "auto", "cuda", hoặc "cpu"
+  save_name: "best_knee_model.pth"
+  mlflow_exp_name: "Knee_Osteoarthritis_Dev"

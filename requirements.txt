@@ -10,3 +10,6 @@
 10. PIL
 11. torch
 12. torchvision
+13. ppyml
+14. grad-cam opencv-python-headless
+15. fastapi uvicorn python-multipart
