@@ -14,7 +14,7 @@ def train():
     lr = CFG['train']['learning_rate']
     
     # 1. Prepare Data & Model
-    print(f"🚀 Bắt đầu quá trình huấn luyện trên: {device}")
+    print(f"[...] Bat dau qua trinh huan luyen tren: {device}")
     train_loader, val_loader, loss_weights = get_data_loaders()
     loss_weights = loss_weights.to(device)
     
@@ -31,7 +31,7 @@ def train():
     mlflow.set_tracking_uri("file:./mlruns")
     mlflow.set_experiment(CFG['train']['mlflow_exp_name'])
 
-    print(f"🚀 Training {epochs} epochs...")
+    print(f"[...] Training {epochs} epochs...")
     
     with mlflow.start_run():
         # Log toàn bộ config lên MLflow để sau này đối chiếu
@@ -92,7 +92,7 @@ def train():
                 save_name = CFG['train']['save_name']
                 save_path = os.path.join(CFG['paths']['models'], save_name)
                 torch.save(model.state_dict(), save_path)
-                print(f"🌟 Đã lưu model tốt nhất: {save_path}")
+                print(f"[OK] Da luu model tot nhat: {save_path}")
                 mlflow.log_artifact(save_path)
 
 if __name__ == "__main__":

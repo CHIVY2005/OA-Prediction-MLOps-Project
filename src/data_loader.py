@@ -19,7 +19,7 @@ class KneeDataset(Dataset):
         self.classes = CFG['data']['class_names']
         
         if not os.path.exists(self.root_dir):
-            print(f"⚠️ Cảnh báo: Không tìm thấy {self.root_dir}")
+            print(f"[WARN] Canh bao: Khong tim thay {self.root_dir}")
             return
 
         for label in self.classes:
@@ -84,7 +84,7 @@ def get_data_loaders():
             
         train_ds = create_stratified_subset(full_train_ds)
         val_ds = create_stratified_subset(full_val_ds)
-        print(f"⚡ Chế độ Fraction {fraction}: Train {len(train_ds)}, Val {len(val_ds)}")
+        print(f"[INFO] Che do Fraction {fraction}: Train {len(train_ds)}, Val {len(val_ds)}")
     else:
         train_ds, val_ds = full_train_ds, full_val_ds
 

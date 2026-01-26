@@ -3,7 +3,7 @@ from torchvision import models
 from .config_loader import CFG
 
 def build_model():
-    print(f"\n--- 🏗️ Khởi tạo {CFG['model']['name']} ---")
+    print(f"\n--- [INFO] Khoi tao {CFG['model']['name']} ---")
     
     pretrained = CFG['model']['pretrained']
     weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1 if pretrained else None
