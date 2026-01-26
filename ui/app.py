@@ -33,6 +33,7 @@ st.markdown("""
 # --- HEADER ---
 st.title("🦵 Knee Osteoarthritis Detection AI")
 st.markdown("Hệ thống chẩn đoán mức độ thoái hóa khớp gối tự động sử dụng **EfficientNet-B0** & **Grad-CAM**.")
+st.info("💡 **NEW:** A modern Web UI is now available! Run `python -m http.server 3000` and visit [localhost:3000/web_ui](http://localhost:3000/web_ui)")
 st.write("---")
 
 # --- SIDEBAR (Upload ảnh) ---

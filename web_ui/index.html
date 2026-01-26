@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knee OA AI Diagnosis</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="background-decor"></div>
+
+    <main class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <i data-lucide="activity"></i>
+                <span>MedAI</span>
+            </div>
+            <h1>Knee Osteoarthritis Detection</h1>
+            <p class="subtitle">Advanced AI Diagnosis powered by EfficientNet & Grad-CAM</p>
+        </header>
+
+        <!-- Upload Section -->
+        <section class="upload-section" id="upload-section">
+            <div class="drop-zone" id="drop-zone">
+                <div class="icon-container">
+                    <i data-lucide="upload-cloud" class="upload-icon"></i>
+                </div>
+                <h3>Drag & Drop X-Ray Image Here</h3>
+                <p>or <span class="browser-btn">browse files</span></p>
+                <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg" hidden>
+            </div>
+        </section>
+
+        <!-- Loading -->
+        <div class="loading-container hidden" id="loading-container">
+            <div class="spinner"></div>
+            <p>Analyzing bone structure features...</p>
+        </div>
+
+        <!-- Result Section -->
+        <section class="result-section hidden" id="result-section">
+            <div class="status-bar">
+                <span class="status-label">DIAGNOSIS COMPLETE</span>
+                <button class="reset-btn" id="reset-btn"><i data-lucide="rotate-ccw"></i> New Scan</button>
+            </div>
+
+            <div class="result-grid">
+                <!-- Original Image -->
+                <div class="image-card">
+                    <div class="card-header">
+                        <i data-lucide="image"></i> Original X-Ray
+                    </div>
+                    <div class="img-wrapper">
+                        <img id="original-img" src="" alt="Original X-Ray">
+                    </div>
+                </div>
+
+                <!-- Heatmap Image -->
+                <div class="image-card">
+                    <div class="card-header">
+                        <i data-lucide="scan-eye"></i> AI Attention (Grad-CAM)
+                    </div>
+                    <div class="img-wrapper">
+                        <img id="heatmap-img" src="" alt="AI Heatmap">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prediction Info -->
+            <div class="prediction-info">
+                <div class="score-card">
+                    <span class="label">PREDICTED GRADE</span>
+                    <h2 id="pred-class" class="grade-text">--</h2>
+                </div>
+                <div class="score-card">
+                    <span class="label">CONFIDENCE SCORE</span>
+                    <h2 id="pred-conf" class="conf-text">--%</h2>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="assets/js/app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

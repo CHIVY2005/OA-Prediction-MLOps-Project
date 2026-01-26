@@ -21,6 +21,17 @@ from src.utils import get_heatmap
 # --- KHỞI TẠO APP (QUAN TRỌNG: Uvicorn tìm biến này) ---
 app = FastAPI(title="Knee Osteoarthritis Detection API")
 
+# --- CORS SETUP (Cho phép Web UI gọi API) ---
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Trong production nên thay bằng domain cụ thể
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Biến global
 model = None
 device = CFG['train']['device']
@@ -29,26 +40,26 @@ device = CFG['train']['device']
 def load_predictor():
     global model
     try:
-        print("⏳ Đang load model...")
+        print("[...] Dang load model...")
         model = build_model()
         
         # Load weights
         model_name = CFG['train']['save_name']
         model_path = os.path.join(CFG['paths']['models'], model_name)
         
-        # map_location để chạy được cả trên máy không có GPU
+        # map_location de chay duoc ca tren may khong co GPU
         checkpoint = torch.load(model_path, map_location=device)
         model.load_state_dict(checkpoint)
         
         model.to(device)
         model.eval()
-        print(f"✅ Model loaded from {model_path}")
+        print(f"[OK] Model loaded from {model_path}")
     except Exception as e:
-        print(f"❌ Lỗi load model: {e}")
+        print(f"[ERROR] Loi load model: {e}")
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    # 1. Đọc ảnh
+    # 1. Doc anh
     contents = await file.read()
     image = Image.open(io.BytesIO(contents)).convert("RGB")
     
@@ -66,25 +77,25 @@ async def predict(file: UploadFile = File(...)):
     confidence = conf.item()
     class_name = CFG['data']['class_names'][label_idx]
 
-    # --- SỬA ĐOẠN NÀY (BẮT ĐẦU) ---
-    heatmap_base64 = "" # Mặc định là rỗng để không lỗi nếu heatmap fail
+    # --- SUA DOAN NAY (BAT DAU) ---
+    heatmap_base64 = "" # Mac dinh la rong de khong loi neu heatmap fail
     
     try:
         # 4. Heatmap
-        # Bắt buộc bật grad cho luồng này để GradCAM tính toán ngược được
+        # Bat buoc bat grad cho luong nay de GradCAM tinh toan nguoc duoc
         with torch.set_grad_enabled(True):
-            # Quan trọng: Tensor đầu vào phải cho phép tính gradient
+            # Quan trong: Tensor dau vao phai cho phep tinh gradient
             input_tensor.requires_grad = True 
             
-            # Gọi hàm vẽ heatmap
+            # Goi ham ve heatmap
             heatmap_img = get_heatmap(model, input_tensor, image)
         
-        # Mã hóa ảnh sang Base64
+        # Ma hoa anh sang Base64
         _, buffer = cv2.imencode('.jpg', cv2.cvtColor(heatmap_img, cv2.COLOR_RGB2BGR))
         heatmap_base64 = base64.b64encode(buffer).decode('utf-8')
         
     except Exception as e:
-        print(f"⚠️ Lỗi tạo heatmap: {e}")
+        print(f"[WARN] Loi tao heatmap: {e}")
         # Nếu lỗi, heatmap_base64 vẫn là chuỗi rỗng "", API vẫn trả về kết quả dự đoán chứ không sập (500)
 
     return {
