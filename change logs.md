@@ -69,6 +69,21 @@
 
 3. Intend:
 
-- Use Docker for Containerization
-- Discuss for deploy on website instead of using streamlit
-- Use DVC
+### 1-26-2026
+
+1. Add:
+- **Web UI**: Created a new, premium web interface (`web_ui/`) using HTML/CSS/JS (No-Build) for easy testing.
+- **MLOPS_JOURNEY.md**: Documentation of the full project lifecycle.
+- **CORS Support**: Updated `api/main.py` to allow browser access to the API.
+
+2. Adjustment:
+- **README.md**: Added "How to Test as a User" guide.
+- **Config**: Verified fast-training settings in `config.yml`.
+
+3. Intend:
+- **Containerization**: Use **Docker** to package the API and Web UI into containers for consistent deployment across any machine.
+- **Data Versioning**: Implement **DVC (Data Version Control)** to manage large datasets and track changes in data over time.
+- **CI/CD Pipeline**: Set up **GitHub Actions** to automatically run tests (`auto_test`) and check code quality whenever changes are pushed.
+- **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.
+- **Model Monitoring**: Integrate Prometheus/Grafana to monitor model performance and API latency in production.
+
