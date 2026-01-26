@@ -1,15 +1,25 @@
-1. githubactions
-2. docker
-3. jupyernotebook
-4. os
-5. pandas
-6. numpy
-7. matplotlib
-8. seaborn
-9. cv2
-10. PIL
-11. torch
-12. torchvision
-13. ppyml
-14. grad-cam opencv-python-headless
-15. fastapi uvicorn python-multipart
+# Core ML & Data
+torch
+torchvision
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+opencv-python
+Pillow
+grad-cam
+
+# MLOps & Tracking
+mlflow
+PyYAML
+
+# API & Web
+fastapi
+uvicorn
+python-multipart
+streamlit
+requests
+
+# Development
+notebook
