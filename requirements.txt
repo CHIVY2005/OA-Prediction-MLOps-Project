@@ -1,25 +1,20 @@
-# Core ML & Data
-torch
-torchvision
+# --- Core Data & ML ---
 numpy
 pandas
 scikit-learn
-matplotlib
-seaborn
-opencv-python
 Pillow
 grad-cam
 
-# MLOps & Tracking
+# --- Quan trọng: Bản không có GUI để chạy trên Docker ---
+opencv-python-headless
+
+# --- MLOps ---
 mlflow
 PyYAML
 
-# API & Web
+# --- App Services ---
 fastapi
 uvicorn
 python-multipart
 streamlit
 requests
-
-# Development
-notebook

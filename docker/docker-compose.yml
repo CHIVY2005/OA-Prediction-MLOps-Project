@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..            # Lùi ra ngoài folder gốc để lấy code
+      dockerfile: docker/Dockerfile  # Chỉ định vị trí file Dockerfile
+    container_name: knee_api
+    command: python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - ../:/app             # Map từ folder gốc (..) vào /app
+    ports:
+      - "8000:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=-1
+
+  ui:
+    build:
+      context: ..            # Lùi ra ngoài
+      dockerfile: docker/Dockerfile
+    container_name: knee_ui
+    command: streamlit run ui/app.py --server.port 8501 --server.address 0.0.0.0
+    volumes:
+      - ../:/app             # Map từ folder gốc (..) vào /app
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000/predict
+    depends_on:
+      - api

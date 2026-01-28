@@ -87,3 +87,21 @@
 - **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.
 - **Model Monitoring**: Integrate Prometheus/Grafana to monitor model performance and API latency in production.
 
+
+### 1-28-2026
+
+1. Add:
+
+- **Docker Integration**: Added `Dockerfile` and `docker-compose.yml` to containerize both the API and UI services, ensuring a consistent runtime environment.
+- **Documentation**: Updated `MLOPS_JOURNEY.md` to reflect the Docker deployment architecture.
+
+2. Adjustment:
+
+- **MLOPS_JOURNEY.md**: Refined the "Future Steps" to include specific tools like DVC, GitHub Actions, Cloud Deployment, and Prometheus/Grafana.
+
+3. Intend:
+
+- **Data Versioning**: Implement **DVC (Data Version Control)** to manage large datasets and track changes in data over time.
+- **CI/CD Pipeline**: Set up **GitHub Actions** to automatically run tests (`auto_test`) and check code quality whenever changes are pushed.
+- **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.
+- **Model Monitoring**: Integrate Prometheus/Grafana to monitor model performance and API latency in production.

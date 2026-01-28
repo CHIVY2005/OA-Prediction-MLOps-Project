@@ -37,7 +37,17 @@ We have two interfaces for the user:
 
 The backend (`api/main.py`) using **FastAPI** serves the model to both interfaces, ensuring consistent logic.
 
+**Containerization (Docker)**:
+We have containerized the application to ensure consistency across environments.
+- **API Container**: Runs the FastAPI backend.
+- **UI Container**: Runs the Streamlit app.
+- **Orchestration**: `docker-compose` manages both services, handling networking and startup dependency.
+
 ## 6. Continuous Improvement (CI/CD)
 - **Versioning**: Code is versioned with Git.
 - **Reproducibility**: `requirements.txt` ensures the environment is consistent.
-- **Future Steps**: We plan to containerize with Docker and automate retraining pipelines using Airflow/DVC.
+- **Future Steps**:
+    - **Data Versioning**: Implement **DVC (Data Version Control)** to manage large datasets and track changes in data over time.
+    - **CI/CD Pipeline**: Set up **GitHub Actions** to automatically run tests (`auto_test`) and check code quality whenever changes are pushed.
+    - **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.
+    - **Model Monitoring**: Integrate Prometheus/Grafana to monitor model performance and API latency in production.

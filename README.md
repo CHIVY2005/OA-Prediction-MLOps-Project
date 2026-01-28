@@ -42,6 +42,8 @@ Since this is a lightweight web app, you can serve it with Python:
 streamlit run ui/app.py
 ```
 
+# Docker
+docker compose -f docker/docker-compose.yml up --build
 # ATTENTION
 
 1. Data folder ~ 202mb , so i'll give you the link:
