@@ -5,6 +5,31 @@
 2. Adjustments: for adjust existing files, include codes and implements
 3. Intend: for what's to do next
 
+
+### 5-16-2026
+
+1. Add:
+- Restructured project folder following MLOps best practices:
+  * Created deployment/ folder containing api/, docker/, web_ui/
+  * Created experiments/ folder separating notebooks and mlruns/
+  * Added monitoring/ and reports/ placeholders for future work
+  * Split requirements.txt into environment-specific files in requirements/
+  * Added explain.md documenting each file/folder purpose
+  * Added workflow.md detailing end-to-end MLOps pipeline
+- Updated import paths in deployment/api/main.py to reflect new structure
+
+2. Adjustment:
+- Removed legacy api/, ui/, web_ui/, notebooks/ folders from root
+- Moved mlruns/ to experiments/mlruns/
+- Preserved all source code and functionality while improving organization
+
+3. Intend:
+- Implement data drift detection and monitoring in monitoring/
+- Set up automated retraining pipeline triggered by monitoring alerts
+- Add Prometheus/Grafana integration for production monitoring
+- Implement CI/CD pipeline with GitHub Actions for automated testing
+- Prepare for cloud deployment (AWS/GCP) using Docker containers
+
 ### 1-7-2026
 
 1. Add: 

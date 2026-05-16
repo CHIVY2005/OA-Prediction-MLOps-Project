@@ -1,0 +1,16 @@
+# --- Core Data & ML ---
+numpy
+pandas
+scikit-learn
+Pillow
+grad-cam
+opencv-python-headless
+
+# --- MLOps ---
+mlflow
+PyYAML
+
+# --- App Services ---
+fastapi
+uvicorn
+python-multipart

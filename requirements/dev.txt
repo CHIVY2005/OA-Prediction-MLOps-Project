@@ -1,0 +1,12 @@
+-r base.txt
+# Development tools
+pytest
+black
+flake8
+isort
+mypy
+# For notebooks and exploration
+jupyterlab
+notebook
+# Streamlit for dev UI (can be removed if using separate web_ui)
+streamlit

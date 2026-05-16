@@ -11,7 +11,7 @@ from fastapi import FastAPI, File, UploadFile
 
 # --- SETUP ĐƯỜNG DẪN ---
 # Thêm thư mục gốc dự án vào sys.path để import được src
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.config_loader import CFG
 from src.model import build_model
