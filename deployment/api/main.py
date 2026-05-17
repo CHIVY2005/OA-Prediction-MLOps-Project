@@ -7,7 +7,7 @@ import cv2
 import torch
 import numpy as np
 from PIL import Image
-from fastapi import FastAPI, File, UploadFile, Request, HTTPException
+from fastapi import FastAPI, File, UploadFile, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 import time
 import json
@@ -16,6 +16,9 @@ from datetime import datetime
 from collections import defaultdict
 import asyncio
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- SETUP ĐƯỜNG DẪN ---
 # Thêm thư mục gốc dự án vào sys.path để import được src
@@ -54,7 +57,52 @@ logger.addHandler(handler)
 # --- CẤU HÌNH ---
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
-DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/your-webhook-url-here")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_ALERT_WEBHOOK_URL") # Keep this for backward compatibility if needed
+API_ALERTS_WEBHOOK = os.getenv("api_alerts_webhook")
+AI_PREDICTION_WEBHOOK = os.getenv("ai_prediction_webhook")
+
+def send_discord_alert(message: str):
+    if not API_ALERTS_WEBHOOK: return
+    try:
+        requests.post(API_ALERTS_WEBHOOK, json={"content": f"🚨 **API ALERT**\n{message}"})
+    except Exception as e:
+        logger.error(f"Failed to send alert to Discord: {e}")
+
+def send_discord_prediction(image_bytes: bytes, filename: str, result: str, confidence: float, process_time: float):
+    if not AI_PREDICTION_WEBHOOK: return
+    try:
+        # 1. Định nghĩa file ảnh để gửi
+        files = {
+            "file": (filename, image_bytes, "image/jpeg")
+        }
+
+        # 2. Xây dựng khối thông tin (Embed)
+        payload = {
+            "embeds": [
+                {
+                    "title": "🦴 [Live] Phân Tích X-Quang Khớp Gối Mới",
+                    "color": 3447003, # Màu xanh dương
+                    "fields": [
+                        {"name": "Dự đoán (Class)", "value": f"**{result}**", "inline": True},
+                        {"name": "Độ tự tin (Confidence)", "value": f"**{confidence:.2%}**", "inline": True},
+                        {"name": "Latency (Tốc độ)", "value": f"`{process_time:.3f}s`", "inline": True}
+                    ],
+                    # Móc tấm ảnh vừa đính kèm vào thẳng khối Embed này
+                    "image": {"url": f"attachment://{filename}"},
+                    "footer": {"text": f"Dự án OA Prediction | Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"}
+                }
+            ]
+        }
+
+        # 3. Gửi cả file và payload json cùng lúc
+        requests.post(
+            AI_PREDICTION_WEBHOOK, 
+            files=files, 
+            data={"payload_json": json.dumps(payload)},
+            timeout=10
+        )
+    except Exception as e:
+        logger.error(f"Failed to send prediction to Discord: {e}")
 
 # --- KHỞI TẠO APP (QUAN TRỌNG: Uvicorn tìm biến này) ---
 app = FastAPI(title="Knee Osteoarthritis Detection API")
@@ -91,6 +139,7 @@ async def rate_limit_middleware(request: Request, call_next):
             "path": request.url.path,
             "method": request.method
         })
+        send_discord_alert(f"Rate limit exceeded (10 requests/min)\nIP: `{client_ip}`\nPath: `{request.url.path}`")
         raise HTTPException(status_code=429, detail="Too Many Requests")
     
     # Thêm request hiện tại
@@ -148,9 +197,11 @@ def load_predictor():
         print(f"[OK] Model loaded from {model_path}")
     except Exception as e:
         print(f"[ERROR] Loi load model: {e}")
+        send_discord_alert(f"Failed to load model on startup!\nError: `{str(e)}`")
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
+async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    start_time = time.time()
     # Input Validation
     # Check file extension
     file_extension = os.path.splitext(file.filename)[1].lower()
@@ -171,16 +222,7 @@ async def predict(file: UploadFile = File(...)):
             "max_size_bytes": MAX_FILE_SIZE
         })
         # Send Discord alert for oversized file
-        if DISCORD_WEBHOOK_URL and "your-webhook-url-here" not in DISCORD_WEBHOOK_URL:
-            try:
-                requests.post(DISCORD_WEBHOOK_URL, json={
-                    "content": f"⚠️ **OVERSIZED FILE BLOCKED**\n"
-                              f"Filename: `{file.filename}`\n"
-                              f"Size: {len(contents) / 1024 / 1024:.2f} MB\n"
-                              f"Limit: {MAX_FILE_SIZE / 1024 / 1024:.2f} MB"
-                })
-            except:
-                pass  # Don't let alerting break the main flow
+        send_discord_alert(f"Oversized file blocked\nFilename: `{file.filename}`\nSize: `{len(contents) / 1024 / 1024:.2f} MB`\nLimit: `{MAX_FILE_SIZE / 1024 / 1024:.2f} MB`")
         raise HTTPException(status_code=413, detail="File too large")
     
     # 1. Doc anh
@@ -238,10 +280,29 @@ async def predict(file: UploadFile = File(...)):
         "has_heatmap": bool(heatmap_base64)
     })
     
+    process_time = time.time() - start_time
+    
+    # Giải mã heatmap để gửi lên kênh Monitor (nếu heatmap được tạo thành công)
+    img_bytes_to_send = contents
+    discord_filename = file.filename
+    if heatmap_base64:
+        img_bytes_to_send = base64.b64decode(heatmap_base64)
+        discord_filename = f"heatmap_{file.filename}"
+
+    # Đẩy việc gửi Discord cho Background Task
+    background_tasks.add_task(
+        send_discord_prediction,
+        image_bytes=img_bytes_to_send,
+        filename=discord_filename,
+        result=class_name,
+        confidence=confidence,
+        process_time=process_time
+    )
+    
     return {
+        "status": "success",
         "filename": file.filename,
         "prediction": class_name,
-        "confidence": f"{confidence:.2%}",
         "heatmap_base64": heatmap_base64
     }
 
@@ -280,6 +341,7 @@ async def general_exception_handler(request: Request, exc: Exception):
         "error": str(exc),
         "exc_info": True
     })
+    send_discord_alert(f"500 Internal Server Error\nPath: `{request.url.path}`\nError: `{str(exc)}`")
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"}

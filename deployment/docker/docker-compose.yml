@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../models:/app/models
+      - ../../configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

@@ -6,6 +6,24 @@
 3. Intend: for what's to do next
 
 
+### 5-17-2026
+
+1. Add:
+- Added GitHub Actions CI/CD pipelines (`.github/workflows/ci.yml` and `cd.yml`) for automated testing and Docker image deployment.
+- Created `Dockerfile` and `docker-compose.yml` in `deployment/docker/` to containerize the API.
+- Implemented a Two-Tier Discord Webhook Monitoring System in `deployment/api/main.py`:
+  * **🚨 #api-alerts (Red Alert)**: Monitors API 500 errors, rate limits (429), file size limits (>5MB), and model loading failures.
+  * **📊 #ai-predictions (Gold Tier)**: Logs successful predictions (Status 200) with the original X-ray image, predicted class, confidence score, and processing time for real-time monitoring.
+- Integrated Discord notifications into GitHub Actions workflows to report pipeline status.
+
+2. Adjustment:
+- Updated `main.py` to load environment variables from `.env` using `python-dotenv`.
+- Updated `requirements.txt` to include `python-dotenv`.
+
+3. Intend:
+- Setup automated retraining pipeline when confidence scores consistently drop.
+- Deploy Docker containers to cloud infrastructure (AWS/GCP).
+
 ### 5-16-2026
 
 1. Add:

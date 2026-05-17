@@ -4,6 +4,11 @@ import torch.optim as optim
 import numpy as np
 import os
 import mlflow
+import matplotlib.pyplot as plt
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 from .config_loader import CFG
 from .model import build_model
 from .data_loader import get_data_loaders
@@ -27,8 +32,8 @@ def train():
         optimizer, mode='min', factor=0.1, patience=3
     )
 
-    # 3. Setup MLflow
-    mlflow.set_tracking_uri("file:./mlruns")
+    # 3. Setup MLflow (Fixed path to experiments/mlruns)
+    mlflow.set_tracking_uri("file:experiments/mlruns")
     mlflow.set_experiment(CFG['train']['mlflow_exp_name'])
 
     print(f"[...] Training {epochs} epochs...")
@@ -40,6 +45,9 @@ def train():
         mlflow.log_param("model_name", CFG['model']['name'])
 
         best_acc = 0.0
+        
+        # Để vẽ biểu đồ
+        history = {"train_loss": [], "val_loss": [], "val_acc": []}
         
         for epoch in range(epochs):
             # --- TRAIN ---
@@ -85,6 +93,11 @@ def train():
                 "val_acc": val_acc,
                 "learning_rate": current_lr
             }, step=epoch)
+            
+            # Lưu lịch sử để vẽ
+            history["train_loss"].append(avg_train_loss)
+            history["val_loss"].append(avg_val_loss)
+            history["val_acc"].append(val_acc)
 
             # Save Best Model
             if val_acc > best_acc:
@@ -94,6 +107,63 @@ def train():
                 torch.save(model.state_dict(), save_path)
                 print(f"[OK] Da luu model tot nhat: {save_path}")
                 mlflow.log_artifact(save_path)
+
+        # 4. Vẽ biểu đồ sau khi train xong (Chỉ vẽ nếu có nhiều hơn 1 epoch)
+        curve_path = None
+        if epochs > 1:
+            plt.figure(figsize=(12, 5))
+            plt.subplot(1, 2, 1)
+            plt.plot(history["train_loss"], label="Train Loss", marker="o")
+            plt.plot(history["val_loss"], label="Val Loss", marker="o")
+            plt.title("Loss Curve")
+            plt.xlabel("Epochs")
+            plt.legend()
+
+            plt.subplot(1, 2, 2)
+            plt.plot(history["val_acc"], label="Val Acc", color="green", marker="o")
+            plt.title("Accuracy Curve")
+            plt.xlabel("Epochs")
+            plt.legend()
+            
+            plt.tight_layout()
+            curve_path = "experiments/training_curves.png"
+            plt.savefig(curve_path)
+            mlflow.log_artifact(curve_path)
+            print(f"[OK] Da luu va log bieu do vao: {curve_path}")
+
+        # 5. Bắn kết quả lên Discord (Dùng kênh Gold Tier - ai_prediction_webhook để track kết quả train)
+        webhook_url = os.getenv("ai_prediction_webhook")
+        if webhook_url:
+            try:
+                import json
+                final_train_loss = history["train_loss"][-1]
+                final_val_loss = history["val_loss"][-1]
+                
+                embed = {
+                    "title": "✅ [MLOps] Huấn luyện Model hoàn tất!",
+                    "color": 3066993, # Màu xanh lá
+                    "fields": [
+                        {"name": "Số Epochs", "value": f"`{epochs}`", "inline": True},
+                        {"name": "Train Loss", "value": f"`{final_train_loss:.4f}`", "inline": True},
+                        {"name": "Val Loss", "value": f"`{final_val_loss:.4f}`", "inline": True},
+                        {"name": "Best Val Accuracy", "value": f"**{best_acc:.2%}**", "inline": False}
+                    ],
+                    "footer": {"text": "Model: EfficientNet-B0"}
+                }
+                
+                if curve_path:
+                    embed["image"] = {"url": "attachment://training_curves.png"}
+                    with open(curve_path, "rb") as f:
+                        files = {"file": ("training_curves.png", f, "image/png")}
+                        payload = {"payload_json": json.dumps({"embeds": [embed]})}
+                        requests.post(webhook_url, data=payload, files=files, timeout=10)
+                else:
+                    payload = {"embeds": [embed]}
+                    requests.post(webhook_url, json=payload, timeout=10)
+                    
+                print("[OK] Da gui bao cao Training len Discord!")
+            except Exception as e:
+                print(f"[ERROR] Khong the gui Discord: {e}")
 
 if __name__ == "__main__":
     train()

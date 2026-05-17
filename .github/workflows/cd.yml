@@ -1,0 +1,106 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    # Chỉ chạy CD khi push lên main hoặc khi CI pass
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          # Sửa lại đường dẫn tới Dockerfile nếu bạn đặt nó ở vị trí khác
+          file: deployment/docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: CD Success Notification
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" -d '{
+            "embeds": [{
+              "title": "✅ CD Pipeline (Docker) - Passed",
+              "color": 3066993,
+              "fields": [
+                {"name": "Người Push (Actor)", "value": "`${{ github.actor }}`", "inline": true},
+                {"name": "Nhánh (Branch)", "value": "`${{ github.ref_name }}`", "inline": true}
+              ]
+            }]
+          }' ${{ secrets.CI_CD_WEBHOOK }}
+
+      - name: CD Failure Notification
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" -d '{
+            "embeds": [{
+              "title": "❌ CD Pipeline (Docker) - Failed",
+              "color": 15158332,
+              "fields": [
+                {"name": "Người Push (Actor)", "value": "`${{ github.actor }}`", "inline": true},
+                {"name": "Nhánh (Branch)", "value": "`${{ github.ref_name }}`", "inline": true}
+              ]
+            }]
+          }' ${{ secrets.CI_CD_WEBHOOK }}
+
+  sync-to-huggingface:
+    needs: build-and-push-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Prep Dockerfile for Hugging Face
+        run: |
+          cp deployment/docker/Dockerfile ./Dockerfile
+          sed -i 's/EXPOSE 8000/EXPOSE 7860/g' ./Dockerfile
+          sed -i 's/--port 8000/--port 7860/g' ./Dockerfile
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_PATH: ${{ secrets.HF_SPACE_PATH }}
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git add Dockerfile
+          git commit -m "chore: prep dockerfile for Hugging Face Spaces [skip ci]" || echo "No changes to commit"
+          # Push to Hugging Face Space
+          git push --force https://oauth2:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE_PATH main
+

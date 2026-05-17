@@ -5,6 +5,9 @@ This document provides an overview of the purpose and functionality of each file
 ## Root Level
 
 - **.github/**: Contains GitHub-specific configurations (e.g., issue templates, workflows for CI/CD).
+  - **workflows/**: CI/CD pipelines.
+    - `ci.yml`: Automated testing and linting.
+    - `cd.yml`: Automated Docker building and push. Both pipelines send notifications to Discord.
 - **configs/**: Configuration files for the project.
   - `config.yml`: Main configuration file defining data, model, and training parameters.
 - **data/**: Stores the dataset used for training and evaluation.
@@ -46,6 +49,7 @@ This document provides an overview of the purpose and functionality of each file
 - `change logs.md`: History of changes made to the project.
 - `LICENSE`: License information.
 - `.gitignore`: Specifies files and directories to be ignored by Git.
+- `.env`: (Not committed to Git) Contains sensitive environment variables like `api_alerts_webhook` and `ai_prediction_webhook` for Discord monitoring.
 
 ## Notes
 

@@ -133,7 +133,7 @@ Deploy the trained model as a REST API with a user-friendly web interface.
 2. **Docker Containerization** (`deployment/docker/`):
    - `Dockerfile`:
      * Base image: python:3.9-slim
-     * Installs dependencies from requirements.txt
+     * Installs system dependencies and python dependencies
      * Copies source code
      * Exposes port 8000
      * Runs uvicorn server
@@ -141,6 +141,11 @@ Deploy the trained model as a REST API with a user-friendly web interface.
      * Defines api service
      * Maps port 8000:8000
      * Optional volume mounts for development
+
+3. **CI/CD Pipeline** (`.github/workflows/`):
+   - `ci.yml`: Automated testing and linting on pull requests.
+   - `cd.yml`: Automated Docker image building and pushing to GitHub Container Registry (GHCR) upon successful CI.
+   - Both pipelines report status to Discord via webhooks.
 
 3. **Web Interface** (`deployment/web_ui/`):
    - Simple HTML interface with drag-and-drop upload
@@ -194,14 +199,18 @@ Ensure model performance remains stable over time and detect issues early.
    - Confidence thresholding for low-confidence predictions
 
 ### Current Monitoring Capabilities
+- **Discord Webhook System**:
+  * **🚨 Red Alert (#api-alerts)**: Triggers on API 500 errors, rate limit abuse (429), file sizes exceeding 5MB, or model startup failures. Acts as the "emergency room" for the project.
+  * **📊 Gold Tier (#ai-predictions)**: Sends successful predictions (Status 200) including the uploaded image, predicted class, confidence percentage, and processing time. Enables real-time visual monitoring for anomalies and data drift.
+- **CI/CD Notifications**: Automated alerts for GitHub Actions pipeline statuses.
 - Basic error handling in API (returns prediction even if heatmap fails)
 - Startup logging shows model loading status
 - MLflow tracks training experiments
 - Docker provides isolation and reproducibility
 
 ### Output (When Implemented)
-- Monitoring dashboard showing data/model health metrics
-- Automated alerts via email/Slack for anomalies
+- Advanced monitoring dashboard showing data/model health metrics
+- Automated retraining pipeline triggered when confidence scores drop
 - Retraining pipeline logs and version history
 - Audit trail of all predictions for compliance
 

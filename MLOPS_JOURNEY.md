@@ -43,11 +43,15 @@ We have containerized the application to ensure consistency across environments.
 - **UI Container**: Runs the Streamlit app.
 - **Orchestration**: `docker-compose` manages both services, handling networking and startup dependency.
 
-## 6. Continuous Improvement (CI/CD)
+## 6. Continuous Improvement & Monitoring (CI/CD)
 - **Versioning**: Code is versioned with Git.
 - **Reproducibility**: `requirements.txt` ensures the environment is consistent.
+- **Containerization**: Fully containerized API using Docker and Docker Compose.
+- **CI/CD Pipeline**: GitHub Actions are set up for Continuous Integration (testing with `pytest`, linting with `flake8`) and Continuous Deployment (building and pushing Docker images to GHCR). Pipeline statuses are automatically reported to Discord.
+- **Real-time Monitoring (Discord Webhooks)**:
+    - **🚨 Red Alert (#api-alerts)**: Instantly notifies the team of critical failures (500 errors, rate limit abuses, oversized files, or model startup failures).
+    - **📊 Gold Tier (#ai-predictions)**: A live feed of all successful predictions with images, results, confidence scores, and processing times. This allows visual monitoring of data drift and model accuracy in production.
 - **Future Steps**:
     - **Data Versioning**: Implement **DVC (Data Version Control)** to manage large datasets and track changes in data over time.
-    - **CI/CD Pipeline**: Set up **GitHub Actions** to automatically run tests (`auto_test`) and check code quality whenever changes are pushed.
     - **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.
-    - **Model Monitoring**: Integrate Prometheus/Grafana to monitor model performance and API latency in production.
+    - **Advanced Monitoring**: Integrate Prometheus/Grafana to monitor system metrics.

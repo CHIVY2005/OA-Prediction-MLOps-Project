@@ -2,6 +2,7 @@
 numpy
 pandas
 scikit-learn
+matplotlib
 Pillow
 grad-cam
 
@@ -12,9 +13,9 @@ opencv-python-headless
 mlflow
 PyYAML
 
-# --- App Services ---
 fastapi
 uvicorn
 python-multipart
 streamlit
 requests
+python-dotenv

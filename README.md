@@ -1,3 +1,12 @@
+---
+title: Knee Osteoarthritis Prediction
+emoji: 🦴
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+---
+
 # How to Test as a User (Start-to-End)
 
 ## 1. Setup Environment
