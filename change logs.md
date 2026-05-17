@@ -16,6 +16,7 @@
   * **📊 #ai-predictions (Gold Tier)**: Logs successful predictions (Status 200) with the original X-ray image, predicted class, confidence score, and processing time for real-time monitoring.
 - Integrated Discord notifications into GitHub Actions workflows using structured, colored Rich Embeds displaying status emojis (✅/❌), trigger Actor, and branch name.
 - Re-architected deployment for **Dual-Remote Push**: Moved `Dockerfile` to the root and changed port to `7860` natively. Removed GitHub Actions auto-sync so developers can push manually and directly to both GitHub and Hugging Face Spaces using local Git remotes.
+- Optimized Dockerfile for Hugging Face builds by explicitly installing **PyTorch CPU-only** (`--index-url https://download.pytorch.org/whl/cpu`) first, reducing build time and memory usage to prevent builder crashes.
 - Updated `main.py` to load environment variables from `.env` using `python-dotenv`.
 - Updated `requirements.txt` to include `python-dotenv`.
 - Updated `src/train.py` to conditionally generate training loss/accuracy plots only if `epochs > 1` (preventing single-dot charts), and to send training completion summaries to Discord using a polished Rich Embed card.
