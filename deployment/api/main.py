@@ -8,7 +8,8 @@ import torch
 import numpy as np
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import time
 import json
 import logging
@@ -106,6 +107,15 @@ def send_discord_prediction(image_bytes: bytes, filename: str, result: str, conf
 
 # --- KHỞI TẠO APP (QUAN TRỌNG: Uvicorn tìm biến này) ---
 app = FastAPI(title="Knee Osteoarthritis Detection API")
+
+# --- STATIC FILES FOR WEB UI ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+web_ui_dir = os.path.join(os.path.dirname(current_dir), "web_ui")
+assets_dir = os.path.join(web_ui_dir, "assets")
+
+if os.path.exists(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
 
 # --- CORS SETUP (Cho phép Web UI gọi API) ---
 from fastapi.middleware.cors import CORSMiddleware
@@ -303,12 +313,16 @@ async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...
         "status": "success",
         "filename": file.filename,
         "prediction": class_name,
+        "confidence": f"{confidence * 100:.1f}%",
         "heatmap_base64": heatmap_base64
     }
 
 @app.get("/")
 def home():
-    return {"message": "API is running!"}
+    index_path = os.path.join(web_ui_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"message": "API is running, but Web UI index.html not found!"}
 
 @app.get("/health")
 def health_check():
