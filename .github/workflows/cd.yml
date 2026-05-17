@@ -1,8 +1,6 @@
 name: CD Pipeline
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_run:
     workflows: ["CI Pipeline"]
     types:
@@ -14,8 +12,8 @@ env:
 
 jobs:
   build-and-push-image:
-    # Chỉ chạy CD khi push lên main hoặc khi CI pass
-    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    # Chỉ chạy CD khi CI pass
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
