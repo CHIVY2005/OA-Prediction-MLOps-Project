@@ -4,9 +4,9 @@ services:
   api:
     build:
       context: ../..
-      dockerfile: deployment/docker/Dockerfile
+      dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "7860:7860"
     volumes:
       - ../../models:/app/models
       - ../../configs:/app/configs

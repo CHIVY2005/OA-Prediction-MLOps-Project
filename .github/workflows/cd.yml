@@ -41,7 +41,7 @@ jobs:
         with:
           context: .
           # Sửa lại đường dẫn tới Dockerfile nếu bạn đặt nó ở vị trí khác
-          file: deployment/docker/Dockerfile
+          file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -73,32 +73,4 @@ jobs:
               ]
             }]
           }' ${{ secrets.CI_CD_WEBHOOK }}
-
-  sync-to-huggingface:
-    needs: build-and-push-image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          lfs: true
-
-      - name: Prep Dockerfile for Hugging Face
-        run: |
-          cp deployment/docker/Dockerfile ./Dockerfile
-          sed -i 's/EXPOSE 8000/EXPOSE 7860/g' ./Dockerfile
-          sed -i 's/--port 8000/--port 7860/g' ./Dockerfile
-
-      - name: Push to Hugging Face Space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE_PATH: ${{ secrets.HF_SPACE_PATH }}
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          git add Dockerfile
-          git commit -m "chore: prep dockerfile for Hugging Face Spaces [skip ci]" || echo "No changes to commit"
-          # Push to Hugging Face Space
-          git push --force https://oauth2:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE_PATH main
 
