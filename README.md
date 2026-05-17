@@ -51,6 +51,25 @@ Since this is a lightweight web app, you can serve it with Python:
 streamlit run ui/app.py
 ```
 
+# Hugging Face Automated Deployment (CI/CD Sync)
+
+This project is configured with a fully automated deployment pipeline that syncs GitHub commits directly to Hugging Face Spaces. The pipeline is designed to keep your development workspace quiet on success, and only alert you on pipeline failures.
+
+## Secrets Configuration
+
+### 1. GitHub Secrets
+In your GitHub Repository, navigate to **Settings > Secrets and variables > Actions** and add:
+- `HF_TOKEN`: Hugging Face Write Token (generated from HF Settings > Access Tokens).
+- `HF_SPACE_PATH`: Hugging Face Space path (e.g., `username/space-name`).
+- `CI_CD_WEBHOOK`: Discord Webhook URL for the `#ci-cd_alerts` channel.
+
+### 2. Hugging Face Space Secrets
+In your Hugging Face Space, navigate to **Settings > Variables and secrets** and add:
+- `api_alerts_webhook`: Discord Webhook URL for the `#api-alerts` channel.
+- `ai_prediction_webhook`: Discord Webhook URL for the `#ai-prediction` channel.
+
+Once configured, any push to `main` will automatically build, test, and deploy to your Hugging Face Space!
+
 # Docker
 docker compose -f docker/docker-compose.yml up --build
 # ATTENTION

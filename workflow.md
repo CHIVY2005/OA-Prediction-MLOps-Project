@@ -144,8 +144,8 @@ Deploy the trained model as a REST API with a user-friendly web interface.
 
 3. **CI/CD Pipeline** (`.github/workflows/`):
    - `ci.yml`: Automated testing and linting on pull requests.
-   - `cd.yml`: Automated Docker image building and pushing to GitHub Container Registry (GHCR) upon successful CI.
-   - Both pipelines report status to Discord via webhooks.
+   - `cd.yml`: Automated Docker image building and pushing to GitHub Container Registry (GHCR), as well as **automated deployment sync to Hugging Face Spaces** (automatically copying Dockerfile, configuring port `7860`, and force-pushing to Hugging Face Spaces).
+   - Pipelines report status directly to Discord via rich, styled cards (Passed/Failed) on the `#ci-cd_alerts` channel. The Hugging Face Spaces sync runs silently to keep dev channels clean.
 
 3. **Web Interface** (`deployment/web_ui/`):
    - Simple HTML interface with drag-and-drop upload

@@ -14,15 +14,19 @@
 - Implemented a Two-Tier Discord Webhook Monitoring System in `deployment/api/main.py`:
   * **🚨 #api-alerts (Red Alert)**: Monitors API 500 errors, rate limits (429), file size limits (>5MB), and model loading failures.
   * **📊 #ai-predictions (Gold Tier)**: Logs successful predictions (Status 200) with the original X-ray image, predicted class, confidence score, and processing time for real-time monitoring.
-- Integrated Discord notifications into GitHub Actions workflows to report pipeline status.
+- Integrated Discord notifications into GitHub Actions workflows using structured, colored Rich Embeds displaying status emojis (✅/❌), trigger Actor, and branch name.
+- Added **Automated Hugging Face Space Deployment Sync** via CD workflow (`cd.yml`). It automatically maps port `7860`, copies `Dockerfile` to the root, and force-pushes to the Hugging Face Space repository.
+- Prepended Hugging Face Space configuration metadata YAML to `README.md`.
 
 2. Adjustment:
 - Updated `main.py` to load environment variables from `.env` using `python-dotenv`.
 - Updated `requirements.txt` to include `python-dotenv`.
+- Updated `src/train.py` to conditionally generate training loss/accuracy plots only if `epochs > 1` (preventing single-dot charts), and to send training completion summaries to Discord using a polished Rich Embed card.
+- Adjusted CI/CD Discord alert routing: success and failure notifications are sent for GitHub runs, while keeping Hugging Face Space sync silent to prevent developer channel spam.
 
 3. Intend:
 - Setup automated retraining pipeline when confidence scores consistently drop.
-- Deploy Docker containers to cloud infrastructure (AWS/GCP).
+- Deploy Docker containers to cloud infrastructure (AWS/GCP) for backup.
 
 ### 5-16-2026
 
