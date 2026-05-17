@@ -15,10 +15,7 @@
   * **🚨 #api-alerts (Red Alert)**: Monitors API 500 errors, rate limits (429), file size limits (>5MB), and model loading failures.
   * **📊 #ai-predictions (Gold Tier)**: Logs successful predictions (Status 200) with the original X-ray image, predicted class, confidence score, and processing time for real-time monitoring.
 - Integrated Discord notifications into GitHub Actions workflows using structured, colored Rich Embeds displaying status emojis (✅/❌), trigger Actor, and branch name.
-- Added **Automated Hugging Face Space Deployment Sync** via CD workflow (`cd.yml`). It automatically maps port `7860`, copies `Dockerfile` to the root, and force-pushes to the Hugging Face Space repository.
-- Prepended Hugging Face Space configuration metadata YAML to `README.md`.
-
-2. Adjustment:
+- Re-architected deployment for **Dual-Remote Push**: Moved `Dockerfile` to the root and changed port to `7860` natively. Removed GitHub Actions auto-sync so developers can push manually and directly to both GitHub and Hugging Face Spaces using local Git remotes.
 - Updated `main.py` to load environment variables from `.env` using `python-dotenv`.
 - Updated `requirements.txt` to include `python-dotenv`.
 - Updated `src/train.py` to conditionally generate training loss/accuracy plots only if `epochs > 1` (preventing single-dot charts), and to send training completion summaries to Discord using a polished Rich Embed card.

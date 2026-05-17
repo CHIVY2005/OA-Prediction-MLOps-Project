@@ -7,7 +7,7 @@ This document provides an overview of the purpose and functionality of each file
 - **.github/**: Contains GitHub-specific configurations (e.g., issue templates, workflows for CI/CD).
   - **workflows/**: CI/CD pipelines.
     - `ci.yml`: Automated testing and linting.
-    - `cd.yml`: Automated Docker building and push, as well as **automated sync and deployment to Hugging Face Spaces**. Pipelines send rich, colored Discord alerts (Passed/Failed) to `#ci-cd_alerts`.
+    - `cd.yml`: Automated Docker building and push. Pipelines send rich, colored Discord alerts (Passed/Failed) to `#ci-cd_alerts`.
 - **configs/**: Configuration files for the project.
   - `config.yml`: Main configuration file defining data, model, and training parameters.
 - **data/**: Stores the dataset used for training and evaluation.

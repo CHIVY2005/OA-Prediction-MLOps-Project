@@ -13,7 +13,7 @@ env:
 jobs:
   build-and-push-image:
     # Chỉ chạy CD khi CI pass
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -58,7 +58,7 @@ jobs:
                 {"name": "Nhánh (Branch)", "value": "`${{ github.ref_name }}`", "inline": true}
               ]
             }]
-          }' ${{ secrets.CI_CD_WEBHOOK }}
+          }' "${{ secrets.CI_CD_WEBHOOK }}"
 
       - name: CD Failure Notification
         if: failure()
@@ -72,5 +72,5 @@ jobs:
                 {"name": "Nhánh (Branch)", "value": "`${{ github.ref_name }}`", "inline": true}
               ]
             }]
-          }' ${{ secrets.CI_CD_WEBHOOK }}
+          }' "${{ secrets.CI_CD_WEBHOOK }}"
 

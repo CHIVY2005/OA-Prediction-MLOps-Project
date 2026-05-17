@@ -47,7 +47,7 @@ We have containerized the application to ensure consistency across environments.
 - **Versioning**: Code is versioned with Git.
 - **Reproducibility**: `requirements.txt` ensures the environment is consistent.
 - **Containerization**: Fully containerized API using Docker and Docker Compose.
-- **CI/CD Pipeline**: GitHub Actions are set up for Continuous Integration (testing with `pytest`, linting with `flake8`) and Continuous Deployment (building and pushing Docker images to GHCR, as well as automatically syncing and deploying the containerized app directly to Hugging Face Spaces). Pipeline statuses (Passed/Failed) are automatically reported to Discord via rich, styled cards showing the actor and branch name.
+- **CI/CD Pipeline**: GitHub Actions are set up for Continuous Integration (testing with `pytest`, linting with `flake8`) and Continuous Deployment (building and pushing Docker images to GHCR). Pipeline statuses (Passed/Failed) are automatically reported to Discord via rich, styled cards showing the actor and branch name. Deployment to Hugging Face Spaces is handled via an elegant local **Dual-Remote Git push** configuration which pushes to both GitHub and Hugging Face simultaneously.
 - **Real-time Monitoring (Discord Webhooks)**:
     - **🚨 Red Alert (#api-alerts)**: Instantly notifies the team of critical failures (500 errors, rate limit abuses, oversized files, or model startup failures).
     - **📊 Gold Tier (#ai-predictions)**: A live feed of all successful predictions with images, results, confidence scores, and processing times. This allows visual monitoring of data drift and model accuracy in production.

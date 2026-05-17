@@ -144,8 +144,9 @@ Deploy the trained model as a REST API with a user-friendly web interface.
 
 3. **CI/CD Pipeline** (`.github/workflows/`):
    - `ci.yml`: Automated testing and linting on pull requests.
-   - `cd.yml`: Automated Docker image building and pushing to GitHub Container Registry (GHCR), as well as **automated deployment sync to Hugging Face Spaces** (automatically copying Dockerfile, configuring port `7860`, and force-pushing to Hugging Face Spaces).
-   - Pipelines report status directly to Discord via rich, styled cards (Passed/Failed) on the `#ci-cd_alerts` channel. The Hugging Face Spaces sync runs silently to keep dev channels clean.
+   - `cd.yml`: Automated Docker image building and pushing to GitHub Container Registry (GHCR).
+   - Pipelines report status directly to Discord via rich, styled cards (Passed/Failed) on the `#ci-cd_alerts` channel.
+   - **Deployment to Hugging Face** is handled manually via a **Dual-Remote Git push** configuration (pushing to both GitHub and Hugging Face simultaneously from the local machine), taking advantage of the root `Dockerfile` and native `7860` port mapping.
 
 3. **Web Interface** (`deployment/web_ui/`):
    - Simple HTML interface with drag-and-drop upload
@@ -227,9 +228,9 @@ Ensure model performance remains stable over time and detect issues early.
    - Metrics logged to MLflow
 
 3. **Deployment**:
-   - Build Docker image: `docker compose -f docker/docker-compose.yml build`
-   - Start services: `docker compose -f docker/docker-compose.yml up`
-   - API available at http://localhost:8000
+   - Build Docker image: `docker compose -f deployment/docker/docker-compose.yml build`
+   - Start services: `docker compose -f deployment/docker/docker-compose.yml up`
+   - API available at http://localhost:7860
    - Web UI served separately or via reverse proxy
 
 4. **Usage**:
