@@ -218,6 +218,8 @@ data/kneeKL224/**
 # Ignore các file model nặng sẽ sinh ra sau này
 models/*
 !models/.gitkeep
+!models/*.pth
+!models/*.pt
 
 # Ignore các file log và cache
 logs/*
