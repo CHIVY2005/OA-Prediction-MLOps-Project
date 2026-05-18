@@ -69,7 +69,9 @@ async function uploadImage(file) {
         });
 
         if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
+            const errorData = await response.json().catch(() => null);
+            const detail = errorData && errorData.detail ? errorData.detail : response.statusText;
+            throw new Error(`API Error (${response.status}): ${detail}`);
         }
 
         const data = await response.json();
@@ -77,7 +79,7 @@ async function uploadImage(file) {
 
     } catch (error) {
         console.error(error);
-        alert("Verification Failed: Could not connect to API.\nMake sure 'python -m uvicorn api.main:app' is running!");
+        alert(`Verification Failed: ${error.message}\nMake sure API is running and file is valid.`);
         resetApp();
     }
 }
