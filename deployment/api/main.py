@@ -37,6 +37,13 @@ logger.setLevel(logging.INFO)
 
 # Handler để xuất ra console dưới dạng JSON
 class JsonFormatter(logging.Formatter):
+    RESERVED_ATTRS = {
+        'args', 'asctime', 'created', 'exc_info', 'exc_text', 'filename',
+        'funcName', 'levelname', 'levelno', 'lineno', 'module', 'msecs',
+        'message', 'msg', 'name', 'pathname', 'process', 'processName',
+        'relativeCreated', 'stack_info', 'thread', 'threadName'
+    }
+
     def format(self, record):
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -47,8 +54,9 @@ class JsonFormatter(logging.Formatter):
             "line": record.lineno
         }
         # Thêm extra fields nếu có
-        if hasattr(record, "extra"):
-            log_entry.update(record.extra)
+        for key, value in record.__dict__.items():
+            if key not in self.RESERVED_ATTRS and not key.startswith('_'):
+                log_entry[key] = value
         return json.dumps(log_entry, ensure_ascii=False)
 
 handler = logging.StreamHandler()
@@ -217,7 +225,7 @@ async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...
     file_extension = os.path.splitext(file.filename)[1].lower()
     if file_extension not in ALLOWED_EXTENSIONS:
         logger.warning("Invalid file type", extra={
-            "filename": file.filename,
+            "file_name": file.filename,
             "extension": file_extension,
             "allowed": list(ALLOWED_EXTENSIONS)
         })
@@ -227,7 +235,7 @@ async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...
     contents = await file.read()
     if len(contents) > MAX_FILE_SIZE:
         logger.warning("File too large", extra={
-            "filename": file.filename,
+            "file_name": file.filename,
             "size_bytes": len(contents),
             "max_size_bytes": MAX_FILE_SIZE
         })
@@ -240,7 +248,7 @@ async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...
         image = Image.open(io.BytesIO(contents)).convert("RGB")
     except Exception as e:
         logger.warning("Invalid image file", extra={
-            "filename": file.filename,
+            "file_name": file.filename,
             "error": str(e)
         })
         raise HTTPException(status_code=400, detail="Invalid image file")
@@ -278,17 +286,17 @@ async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...
         
     except Exception as e:
         logger.warning("Heatmap generation failed", extra={
-            "filename": file.filename,
+            "file_name": file.filename,
             "error": str(e)
         })
         # Nếu lỗi, heatmap_base64 vẫn là chuỗi rỗng "", API vẫn trả về kết quả dự đoán chứ không sập (500)
     
     logger.info("Prediction made", extra={
-        "filename": file.filename,
-        "prediction": class_name,
-        "confidence": confidence,
-        "has_heatmap": bool(heatmap_base64)
-    })
+            "file_name": file.filename,
+            "prediction": class_name,
+            "confidence": confidence,
+            "has_heatmap": bool(heatmap_base64)
+        })
     
     process_time = time.time() - start_time
     
@@ -349,11 +357,10 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    logger.error("Unhandled exception", extra={
+    logger.error("Unhandled exception", exc_info=True, extra={
         "path": request.url.path,
         "method": request.method,
-        "error": str(exc),
-        "exc_info": True
+        "error": str(exc)
     })
     send_discord_alert(f"500 Internal Server Error\nPath: `{request.url.path}`\nError: `{str(exc)}`")
     return JSONResponse(
