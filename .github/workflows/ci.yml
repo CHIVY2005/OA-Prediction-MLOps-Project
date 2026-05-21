@@ -32,7 +32,7 @@ jobs:
         
     - name: Run tests with pytest
       run: |
-        pytest -q
+        python -m pytest -q
 
     - name: CI Success Notification
       if: success()

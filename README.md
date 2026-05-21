@@ -47,6 +47,7 @@ Create/use a virtual environment and install dependencies:
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\dvc.exe pull
 ```
 
 Run the API and Web UI locally:
@@ -112,6 +113,7 @@ docker compose -f deployment/docker/docker-compose.yml up --build
 
 ## Data
 
-The dataset is not committed because it is large. Download KneeKL224 from:
+The full dataset is large. DVC (Data Version Control) is used to track the `data/kneeKL224/test/` folder and model weights (`models/best_knee_model.pth`) to keep the Git repository lightweight.
+For training on the full dataset, download KneeKL224 from:
 
 - https://data.mendeley.com/datasets/56rmx5bjcr/1

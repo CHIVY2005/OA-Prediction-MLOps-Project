@@ -55,7 +55,8 @@ We have containerized the application to ensure consistency across environments.
 - **API Security & Reliability**:
     - **Offline IP Geolocation**: The API uses a localized cache of Vietnam CIDR blocks with binary search (`bisect`) to strictly limit access to Vietnamese IP addresses in `< 0.1ms` without network latency.
     - **Endpoint Rate Limiting**: Uses `slowapi` to enforce strict in-memory rate limiting per IP (`10 req/min` for predictions, `60 req/min` for health checks) preventing abuse and out-of-memory errors.
+- **Data Versioning (DVC)**: Implemented **DVC** to track large files (`data/kneeKL224/test/` and `models/best_knee_model.pth`), keeping the Git repository lightweight and enabling reproducible models.
 - **Future Steps**:
-    - **Data Versioning**: Implement **DVC (Data Version Control)** to manage large datasets and track changes in data over time.
+    - **Data Drift Detection**: Implement data drift monitoring using tools like Evidently AI to detect when production data distribution changes compared to training data.
     - **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.
     - **Advanced Monitoring**: Integrate Prometheus/Grafana to monitor system metrics.

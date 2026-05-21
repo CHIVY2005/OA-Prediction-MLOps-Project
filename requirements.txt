@@ -20,3 +20,5 @@ streamlit
 requests
 python-dotenv
 aiofiles
+slowapi
+dvc

@@ -36,13 +36,12 @@ This document provides an overview of the purpose and functionality of each file
 - **tests/**: Unit and integration tests.
 - **monitoring/**: For setting up monitoring, logging, and alerting (to be implemented).
 - **reports/**: For storing evaluation results, metrics, and visualizations (to be implemented).
-- **requirements/**: Separated requirement files for different environments.
-  - `base.txt`: Core dependencies.
-  - `dev.txt`: Development dependencies (e.g., testing, linting).
-  - `prod.txt`: Production dependencies.
+- **dvc_remote/**: Local remote storage directory for DVC. Contains the actual large files tracked by DVC (ignored by Git).
+- **.dvc/**: Configuration folder for DVC.
 
 ## Key Files
 
+- `requirements.txt`: Single source of truth for all project dependencies (FastAPI, PyTorch, DVC, etc.).
 - `README.md`: Overview of the project and instructions for getting started.
 - `Dockerfile`: Root Dockerfile used by Hugging Face Spaces. It exposes port `7860` and runs `deployment.api.main:app`.
 - `MLOPS_JOURNEY.md`: Document detailing the MLOps journey and lessons learned.

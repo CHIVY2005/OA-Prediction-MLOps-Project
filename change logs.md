@@ -12,7 +12,7 @@
 - Added `httpx` to development requirements for FastAPI `TestClient`.
 - Implemented Offline IP Geolocation using a localized VN CIDR block cache (`vn-cidr.txt`) to restrict API access strictly to Vietnam without external API latency.
 - Integrated `slowapi` for optimized, in-memory rate limiting applied directly to specific endpoints (`/predict` at 10/min, others at 60/min).
-- **Image Validation**: Implemented an AI-powered validation check using MobileNetV3 (ImageNet-1k) and color variance to reject non-knee images ("gửi bậy"). Invalid images are automatically rejected with a 400 Bad Request and a clear instruction to upload a valid knee X-ray.
+- **Image Validation**: Implemented an AI-powered validation check using MobileNetV3 (ImageNet-1k) and color variance to reject non-knee images. Invalid images are automatically rejected with a 400 Bad Request and a clear instruction to upload a valid knee X-ray.
 - **Webhook Filtering**: The `ai_prediction_webhook` Discord channel is now exclusively used for monitoring malicious/invalid uploads along with the validation confidence score. Notifications for successful predictions have been silenced to prevent channel spamming.
 
 2. Adjustments:
@@ -20,6 +20,9 @@
 - Hardened `deployment/api/main.py` so failed startup leaves `model = None`, `/predict` returns `503 Model not loaded`, Discord alerts use request timeouts, and logger handlers are not duplicated during reload/test imports.
 - Updated documentation for Hugging Face Spaces as the production user-testing path: the Space serves the Web UI at `/`, calls same-origin `/predict`, displays prediction/heatmap to users, and sends prediction images/heatmaps to Discord through `ai_prediction_webhook`.
 - Installed runtime/test dependencies into `.venv` and verified tests pass locally.
+- Fixed CI/CD pipeline failure by adding the missing `slowapi` dependency to `requirements.txt`.
+- Consolidated dependency management by removing the redundant `requirements/` folder in favor of a single `requirements.txt` at the root directory.
+- Integrated **DVC (Data Version Control)** to track large files (using a local remote `dvc_remote/`). Untracked `data/kneeKL224/test/` and `models/best_knee_model.pth` from Git and moved them to DVC management.
 
 3. Intend:
 - Migrate FastAPI startup from deprecated `on_event` to lifespan handlers.
@@ -63,7 +66,7 @@
   * Added workflow.md detailing end-to-end MLOps pipeline
 - Updated import paths in deployment/api/main.py to reflect new structure
 
-2. Adjustment:
+2. Adjustments:
 - Removed legacy api/, ui/, web_ui/, notebooks/ folders from root
 - Moved mlruns/ to experiments/mlruns/
 - Preserved all source code and functionality while improving organization
@@ -77,8 +80,7 @@
 
 ### 1-7-2026
 
-1. Add: 
-
+1. Add:
 - Construct of a popular MLOps project's folder`
 - Logic of changelogs
 - ci/cd .yml
@@ -86,12 +88,10 @@
 - Create config.yaml
 - Create 01_data_exlporation.ipynb, statictis class, image example, metadata, check imbalance, agumentation, build base model.
 
-2. Adjustment:
-
+2. Adjustments:
 - Add .gitignore to keep only the folder, ignore entire 
 
 3. Intend:
-
 - In notebook, check data leakage, verify auto_test, validate class imbalance
 -  Pipline: dataloader, torchvision, model,py.
 
@@ -99,15 +99,12 @@
 ### 1-12-2026
 
 1. Add:
-
 - None
 
-2. Adjustment:
-
+2. Adjustments:
 -  In notebook, check data leakage, verify auto_test, validate class imbalance
 
 3. Intend:
-
 - Add MLflow to attach logging to following loss/accuracy
 - Separate notebook into specific python scripts (dataloader, model.py,...)
 - Use Git and DVC to mangage code and data with git/dvc
@@ -117,7 +114,6 @@
 ### 1-14-2026
 
 1. Add:
-
 - Config parameters for model
 - Create configloader.py to help python know what is in config.yml in the configs folder
 - Create data_loader.py to load entire images
@@ -129,8 +125,7 @@
     - python -m uvicorn api.main:app --reload
 - Create app.py in ui folder to build interface for user using streamlit
 
-2. Adjustment:
-
+2. Adjustments:
 - Adjust guideline and change postfix of config.yaml into config.yml
 - Adjust dataloader.py into data_loader.py to correct the path
 - fix not showing port and check for errorsapp.py in folder ui
@@ -138,7 +133,6 @@
     - Adjust get_heatmap function in utils.py in src folder and measure that functions in main.py in api folder under level of torch.get_grad_enabled(True)
 
 3. Intend:
-
 ### 1-26-2026
 
 1. Add:
@@ -146,7 +140,7 @@
 - **MLOPS_JOURNEY.md**: Documentation of the full project lifecycle.
 - **CORS Support**: Updated `api/main.py` to allow browser access to the API.
 
-2. Adjustment:
+2. Adjustments:
 - **README.md**: Added "How to Test as a User" guide.
 - **Config**: Verified fast-training settings in `config.yml`.
 
@@ -161,16 +155,13 @@
 ### 1-28-2026
 
 1. Add:
-
 - **Docker Integration**: Added `Dockerfile` and `docker-compose.yml` to containerize both the API and UI services, ensuring a consistent runtime environment.
 - **Documentation**: Updated `MLOPS_JOURNEY.md` to reflect the Docker deployment architecture.
 
-2. Adjustment:
-
+2. Adjustments:
 - **MLOPS_JOURNEY.md**: Refined the "Future Steps" to include specific tools like DVC, GitHub Actions, Cloud Deployment, and Prometheus/Grafana.
 
 3. Intend:
-
 - **Data Versioning**: Implement **DVC (Data Version Control)** to manage large datasets and track changes in data over time.
 - **CI/CD Pipeline**: Set up **GitHub Actions** to automatically run tests (`auto_test`) and check code quality whenever changes are pushed.
 - **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.

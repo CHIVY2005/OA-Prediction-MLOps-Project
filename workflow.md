@@ -44,6 +44,8 @@ Prepare clean, structured data for model training with proper handling of class 
            ├── 2/
            ├── 3/
            └── 4/
+   
+   *Note: Due to size constraints, only `data/kneeKL224/test` is tracked via DVC. The full dataset should be downloaded separately for training.*
    ```
 
 3. **Data Processing** (`src/data_loader.py`):
@@ -228,6 +230,8 @@ Ensure model performance remains stable over time and detect issues early.
    - Metrics logged to MLflow
 
 3. **Deployment**:
+   - Initialize environment: `pip install -r requirements.txt`
+   - Fetch DVC data: `dvc pull`
    - Build Docker image: `docker compose -f deployment/docker/docker-compose.yml build`
    - Start services: `docker compose -f deployment/docker/docker-compose.yml up`
    - Local API/Web UI available at http://localhost:7860

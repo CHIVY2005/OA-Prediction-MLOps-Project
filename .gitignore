@@ -3,6 +3,11 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
 # C extensions
 *.so
 # MLflow
@@ -10,8 +15,6 @@ mlruns/
 .mlruns/
 artifacts/
 # Ignore data files
-data/*
-!data/**/.gitkeep
 # Distribution / packaging
 .Python
 build/
@@ -211,15 +214,21 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-# Ignore toàn bộ ảnh trong data nhưng giữ folder
-data/kneeKL224/**
-!data/kneeKL224/**/.gitkeep
+# DVC Remote storage
+dvc_remote/
 
-# Ignore các file model nặng sẽ sinh ra sau này
-models/*
-!models/.gitkeep
-!models/*.pth
-!models/*.pt
+# Ignore raw data and model files, but allow tracking .dvc configuration files
+data/**
+!data/
+!data/**/
+!data/**/*.dvc
+!data/**/.gitkeep
+
+models/**
+!models/
+!models/**/
+!models/**/*.dvc
+!models/**/.gitkeep
 
 # Ignore các file log và cache
 logs/*
