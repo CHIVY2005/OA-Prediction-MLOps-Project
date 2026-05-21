@@ -10,6 +10,8 @@
 1. Add:
 - Added FastAPI reliability tests for health checks, file validation, model-not-loaded behavior, and mocked prediction success.
 - Added `httpx` to development requirements for FastAPI `TestClient`.
+- Implemented Offline IP Geolocation using a localized VN CIDR block cache (`vn-cidr.txt`) to restrict API access strictly to Vietnam without external API latency.
+- Integrated `slowapi` for optimized, in-memory rate limiting applied directly to specific endpoints (`/predict` at 10/min, others at 60/min).
 
 2. Adjustments:
 - Updated CI so tests fail the build when they fail, and flake8 checks critical Python errors while excluding local virtual environments.

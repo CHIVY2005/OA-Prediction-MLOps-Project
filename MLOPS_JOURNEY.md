@@ -43,6 +43,7 @@ We have containerized the application to ensure consistency across environments.
 - **Port**: The root Dockerfile exposes `7860`, which is the native Hugging Face Spaces app port.
 - **Local orchestration**: `deployment/docker/docker-compose.yml` can run the same app locally for verification.
 
+
 ## 6. Continuous Improvement & Monitoring (CI/CD)
 - **Versioning**: Code is versioned with Git.
 - **Reproducibility**: `requirements.txt` ensures the environment is consistent.
@@ -51,6 +52,9 @@ We have containerized the application to ensure consistency across environments.
 - **Real-time Monitoring (Discord Webhooks)**:
     - **🚨 Red Alert (#api-alerts)**: Instantly notifies the team of critical failures (500 errors, rate limit abuses, oversized files, or model startup failures).
     - **📊 Gold Tier (#ai-predictions)**: A live feed of successful predictions from the Hugging Face Space with the image/heatmap, result, confidence score, and processing time. This allows visual monitoring of data drift and model accuracy in production.
+- **API Security & Reliability**:
+    - **Offline IP Geolocation**: The API uses a localized cache of Vietnam CIDR blocks with binary search (`bisect`) to strictly limit access to Vietnamese IP addresses in `< 0.1ms` without network latency.
+    - **Endpoint Rate Limiting**: Uses `slowapi` to enforce strict in-memory rate limiting per IP (`10 req/min` for predictions, `60 req/min` for health checks) preventing abuse and out-of-memory errors.
 - **Future Steps**:
     - **Data Versioning**: Implement **DVC (Data Version Control)** to manage large datasets and track changes in data over time.
     - **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.

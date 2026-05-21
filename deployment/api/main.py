@@ -118,8 +118,68 @@ def send_discord_prediction(image_bytes: bytes, filename: str, result: str, conf
     except Exception as e:
         logger.error(f"Failed to send prediction to Discord: {e}")
 
+import urllib.request
+import ipaddress
+import bisect
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# --- RATE LIMITING SETUP (SLOWAPI) ---
+limiter = Limiter(key_func=get_remote_address)
+
 # --- KHỞI TẠO APP (QUAN TRỌNG: Uvicorn tìm biến này) ---
 app = FastAPI(title="Knee Osteoarthritis Detection API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# --- OFFLINE IP GEOLOCATION (VIETNAM ONLY) ---
+vn_ip_ranges = []
+def load_vn_cidr():
+    global vn_ip_ranges
+    cidr_file = os.path.join(os.path.dirname(__file__), "vn-cidr.txt")
+    
+    # Download if not exists
+    if not os.path.exists(cidr_file):
+        cidr_url = "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/vn.cidr"
+        try:
+            req = urllib.request.Request(cidr_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                content = response.read().decode('utf-8')
+                with open(cidr_file, "w") as f:
+                    f.write(content)
+        except Exception as e:
+            logger.error(f"Failed to download VN CIDR: {e}")
+            return
+            
+    # Load and parse
+    try:
+        with open(cidr_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    network = ipaddress.ip_network(line)
+                    vn_ip_ranges.append((int(network.network_address), int(network.broadcast_address)))
+        vn_ip_ranges.sort()
+        logger.info(f"Loaded {len(vn_ip_ranges)} VN IP ranges for offline checking.")
+    except Exception as e:
+        logger.error(f"Failed to load VN CIDR from file: {e}")
+
+def is_ip_in_vn(ip_str: str) -> bool:
+    if ip_str in ["127.0.0.1", "::1", "localhost"] or ip_str.startswith("192.168.") or ip_str.startswith("10."):
+        return True
+    if not vn_ip_ranges:
+        return True # Fallback if ranges failed to load
+    try:
+        ip_int = int(ipaddress.ip_address(ip_str))
+        idx = bisect.bisect_right(vn_ip_ranges, (ip_int, float('inf')))
+        if idx > 0:
+            start_ip, end_ip = vn_ip_ranges[idx - 1]
+            if start_ip <= ip_int <= end_ip:
+                return True
+        return False
+    except Exception:
+        return False
 
 # --- STATIC FILES FOR WEB UI ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -141,35 +201,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- RATE LIMITING (GIẢN ĐẢN) ---
-# Lưu trữ count request theo IP và thời gian
-request_counts = defaultdict(list)
-RATE_LIMIT_REQUESTS = 10  # 10 requests
-RATE_LIMIT_WINDOW = 60    # per 60 seconds
-
+# --- IP GEOLOCATION MIDDLEWARE ---
 @app.middleware("http")
-async def rate_limit_middleware(request: Request, call_next):
+async def ip_check_middleware(request: Request, call_next):
     client_ip = request.client.host
-    now = time.time()
-    
-    # Xóa các request cũ ngoài cửa sổ thời gian
-    request_counts[client_ip] = [t for t in request_counts[client_ip] if now - t < RATE_LIMIT_WINDOW]
-    
-    # Kiểm tra nếu vượt quá giới hạn
-    if len(request_counts[client_ip]) >= RATE_LIMIT_REQUESTS:
-        logger.warning("Rate limit exceeded", extra={
-            "client_ip": client_ip,
-            "path": request.url.path,
-            "method": request.method
-        })
-        send_discord_alert(f"Rate limit exceeded (10 requests/min)\nIP: `{client_ip}`\nPath: `{request.url.path}`")
-        raise HTTPException(status_code=429, detail="Too Many Requests")
-    
-    # Thêm request hiện tại
-    request_counts[client_ip].append(now)
-    
-    response = await call_next(request)
-    return response
+    if not is_ip_in_vn(client_ip):
+        logger.warning(f"Access blocked for non-VN IP: {client_ip}")
+        return JSONResponse(status_code=403, content={"detail": "Access Denied: API is only available in Vietnam."})
+    return await call_next(request)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -201,6 +240,12 @@ model = None
 device = CFG['train']['device']
 
 @app.on_event("startup")
+def startup_events():
+    import threading
+    # Load CIDR in background to not block fast startup
+    threading.Thread(target=load_vn_cidr, daemon=True).start()
+
+@app.on_event("startup")
 def load_predictor():
     global model
     try:
@@ -225,7 +270,8 @@ def load_predictor():
         send_discord_alert(f"Failed to load model on startup!\nError: `{str(e)}`")
 
 @app.post("/predict")
-async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+@limiter.limit("10/minute")
+async def predict(request: Request, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     start_time = time.time()
     # Input Validation
     # Check file extension
@@ -341,14 +387,16 @@ async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...
     }
 
 @app.get("/")
-def home():
+@limiter.limit("60/minute")
+def home(request: Request):
     index_path = os.path.join(web_ui_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return {"message": "API is running, but Web UI index.html not found!"}
 
 @app.get("/health")
-def health_check():
+@limiter.limit("60/minute")
+def health_check(request: Request):
     global model
     if model is None:
         return JSONResponse(

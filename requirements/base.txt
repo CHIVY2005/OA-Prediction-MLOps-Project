@@ -14,3 +14,4 @@ PyYAML
 fastapi
 uvicorn
 python-multipart
+slowapi
