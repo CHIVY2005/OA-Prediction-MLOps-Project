@@ -12,12 +12,10 @@ import deployment.api.main as api
 @pytest.fixture(autouse=True)
 def reset_api_state(monkeypatch):
     api.model = None
-    api.request_counts.clear()
     monkeypatch.setattr(api, "API_ALERTS_WEBHOOK", None)
     monkeypatch.setattr(api, "AI_PREDICTION_WEBHOOK", None)
     yield
     api.model = None
-    api.request_counts.clear()
 
 
 @pytest.fixture
@@ -49,6 +47,7 @@ def install_predict_mocks(monkeypatch):
         "get_heatmap",
         lambda model, input_tensor, image: np.zeros((224, 224, 3), dtype=np.uint8),
     )
+    monkeypatch.setattr(api, "is_valid_knee_xray", lambda image: (True, 0.99))
 
 
 def test_health_returns_503_when_model_not_loaded(client):
@@ -114,3 +113,17 @@ def test_predict_succeeds_with_mocked_model(client, monkeypatch):
     assert payload["prediction"] == "2"
     assert payload["confidence"] == "32.2%"
     assert payload["heatmap_base64"]
+
+
+def test_predict_rejects_invalid_knee_xray(client, monkeypatch):
+    install_predict_mocks(monkeypatch)
+    # Simulate an invalid image (e.g., cat, dog, non-xray)
+    monkeypatch.setattr(api, "is_valid_knee_xray", lambda image: (False, 0.98))
+
+    response = client.post(
+        "/predict",
+        files={"file": ("fake_image.jpg", image_bytes(), "image/jpeg")},
+    )
+
+    assert response.status_code == 400
+    assert "Ảnh tải lên không phải là ảnh chụp X-quang khớp gối" in response.json()["detail"]

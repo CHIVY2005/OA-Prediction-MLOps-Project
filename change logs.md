@@ -12,6 +12,8 @@
 - Added `httpx` to development requirements for FastAPI `TestClient`.
 - Implemented Offline IP Geolocation using a localized VN CIDR block cache (`vn-cidr.txt`) to restrict API access strictly to Vietnam without external API latency.
 - Integrated `slowapi` for optimized, in-memory rate limiting applied directly to specific endpoints (`/predict` at 10/min, others at 60/min).
+- **Image Validation**: Implemented an AI-powered validation check using MobileNetV3 (ImageNet-1k) and color variance to reject non-knee images ("gửi bậy"). Invalid images are automatically rejected with a 400 Bad Request and a clear instruction to upload a valid knee X-ray.
+- **Webhook Filtering**: The `ai_prediction_webhook` Discord channel is now exclusively used for monitoring malicious/invalid uploads along with the validation confidence score. Notifications for successful predictions have been silenced to prevent channel spamming.
 
 2. Adjustments:
 - Updated CI so tests fail the build when they fail, and flake8 checks critical Python errors while excluding local virtual environments.

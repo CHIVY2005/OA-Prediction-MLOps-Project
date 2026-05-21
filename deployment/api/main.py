@@ -16,6 +16,7 @@ from datetime import datetime
 from collections import defaultdict
 import requests
 from dotenv import load_dotenv
+import numpy as np
 
 load_dotenv()
 
@@ -117,6 +118,40 @@ def send_discord_prediction(image_bytes: bytes, filename: str, result: str, conf
         )
     except Exception as e:
         logger.error(f"Failed to send prediction to Discord: {e}")
+
+def send_discord_invalid_upload(image_bytes: bytes, filename: str, confidence: float):
+    if not AI_PREDICTION_WEBHOOK:
+        return
+    try:
+        files = {
+            "file": (filename, image_bytes, "image/jpeg")
+        }
+
+        payload = {
+            "embeds": [
+                {
+                    "title": "⚠️ [Cảnh Báo] Phát Hiện Ảnh Tải Lên Không Hợp Lệ (Gửi Bậy)",
+                    "color": 15158332, # Màu đỏ cảnh báo
+                    "description": "Hệ thống đã phát hiện và chặn một yêu cầu dự đoán do ảnh tải lên không phải là ảnh chụp X-quang khớp gối.",
+                    "fields": [
+                        {"name": "Tên file", "value": f"`{filename}`", "inline": True},
+                        {"name": "Độ tự tin (Confidence)", "value": f"**{confidence:.2%}**", "inline": True},
+                        {"name": "Trạng thái", "value": "❌ Đã từ chối & Yêu cầu gửi lại", "inline": True}
+                    ],
+                    "image": {"url": f"attachment://{filename}"},
+                    "footer": {"text": f"Dự án OA Prediction | Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"}
+                }
+            ]
+        }
+
+        requests.post(
+            AI_PREDICTION_WEBHOOK, 
+            files=files, 
+            data={"payload_json": json.dumps(payload)},
+            timeout=10
+        )
+    except Exception as e:
+        logger.error(f"Failed to send invalid upload alert to Discord: {e}")
 
 import urllib.request
 import ipaddress
@@ -237,6 +272,7 @@ async def log_requests(request: Request, call_next):
 # --- KHỞI TẠO ỨNG DỤNG ---
 # Biến global
 model = None
+validation_model = None
 device = CFG['train']['device']
 
 @app.on_event("startup")
@@ -268,6 +304,75 @@ def load_predictor():
         model = None
         print(f"[ERROR] Loi load model: {e}")
         send_discord_alert(f"Failed to load model on startup!\nError: `{str(e)}`")
+
+@app.on_event("startup")
+def load_validation_model():
+    global validation_model
+    try:
+        import torchvision.models as models
+        print("[...] Dang load validation model (MobileNetV3)...")
+        validation_model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
+        validation_model.to(device)
+        validation_model.eval()
+        print("[OK] Validation model (MobileNetV3) loaded.")
+    except Exception as e:
+        validation_model = None
+        print(f"[ERROR] Loi load validation model: {e}")
+        send_discord_alert(f"Failed to load validation model on startup!\nError: `{str(e)}`")
+
+def is_valid_knee_xray(image: Image.Image) -> tuple[bool, float]:
+    """
+    Kiểm tra xem ảnh tải lên có phải là ảnh chụp X-quang khớp gối hay không.
+    Trả về: (is_valid, confidence)
+    """
+    if validation_model is None:
+        # Nếu không load được model check thì bỏ qua để tránh chặn nhầm
+        return True, 1.0
+
+    try:
+        # 1. Kiểm tra màu sắc (Grayscale/Color Variance)
+        img_np = np.array(image)
+        if len(img_np.shape) == 3 and img_np.shape[2] == 3:
+            diff_rg = np.mean(np.abs(img_np[:, :, 0].astype(np.int16) - img_np[:, :, 1].astype(np.int16)))
+            diff_gb = np.mean(np.abs(img_np[:, :, 1].astype(np.int16) - img_np[:, :, 2].astype(np.int16)))
+            diff_br = np.mean(np.abs(img_np[:, :, 2].astype(np.int16) - img_np[:, :, 0].astype(np.int16)))
+            avg_color_diff = (diff_rg + diff_gb + diff_br) / 3.0
+            
+            if avg_color_diff > 20.0:
+                # Ảnh màu đậm, chắc chắn không phải X-quang
+                return False, 0.95 + (avg_color_diff / 1000.0 if avg_color_diff < 50.0 else 0.04)
+
+        # 2. Kiểm tra bằng MobileNetV3 (ImageNet-1k)
+        from torchvision import transforms
+        val_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        val_tensor = val_transform(image).unsqueeze(0).to(device)
+        
+        with torch.no_grad():
+            val_output = validation_model(val_tensor)
+            val_probs = torch.nn.functional.softmax(val_output, dim=1)[0]
+            
+        # Class index 906: 'x-ray, x-ray picture, roentgenogram'
+        xray_prob = val_probs[906].item()
+        
+        # Lấy Top 15 dự đoán
+        top15_prob, top15_catid = torch.topk(val_probs, 15)
+        is_xray_in_top15 = 906 in top15_catid.tolist()
+        
+        if xray_prob >= 0.05 or is_xray_in_top15:
+            # Được dự đoán là X-quang!
+            return True, max(xray_prob, 0.85)
+        else:
+            # Không phải ảnh X-quang
+            conf_not_xray = 1.0 - xray_prob
+            return False, conf_not_xray
+
+    except Exception as e:
+        logger.error(f"Lỗi khi kiểm tra ảnh X-quang: {e}")
+        return True, 1.0
 
 @app.post("/predict")
 @limiter.limit("10/minute")
@@ -310,6 +415,25 @@ async def predict(request: Request, background_tasks: BackgroundTasks, file: Upl
             "error": str(e)
         })
         raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # 1.5. Kiểm tra tính hợp lệ của ảnh khớp gối (Không phải ảnh gối / gửi bậy)
+    is_valid, validation_conf = is_valid_knee_xray(image)
+    if not is_valid:
+        logger.warning("Uploaded image is not a knee X-ray (gửi bậy)", extra={
+            "file_name": file.filename,
+            "validation_confidence": validation_conf
+        })
+        # Gửi cảnh báo lên Discord webhook qua background task
+        background_tasks.add_task(
+            send_discord_invalid_upload,
+            image_bytes=contents,
+            filename=file.filename,
+            confidence=validation_conf
+        )
+        raise HTTPException(
+            status_code=400, 
+            detail="Ảnh tải lên không phải là ảnh chụp X-quang khớp gối. Vui lòng gửi lại ảnh đúng yêu cầu."
+        )
 
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
@@ -368,15 +492,15 @@ async def predict(request: Request, background_tasks: BackgroundTasks, file: Upl
         img_bytes_to_send = base64.b64decode(heatmap_base64)
         discord_filename = f"heatmap_{file.filename}"
 
-    # Đẩy việc gửi Discord cho Background Task
-    background_tasks.add_task(
-        send_discord_prediction,
-        image_bytes=img_bytes_to_send,
-        filename=discord_filename,
-        result=class_name,
-        confidence=confidence,
-        process_time=process_time
-    )
+    # Đẩy việc gửi Discord cho Background Task (Bị vô hiệu hóa vì webhook chỉ nhận thông báo gửi bậy)
+    # background_tasks.add_task(
+    #     send_discord_prediction,
+    #     image_bytes=img_bytes_to_send,
+    #     filename=discord_filename,
+    #     result=class_name,
+    #     confidence=confidence,
+    #     process_time=process_time
+    # )
     
     return {
         "status": "success",
