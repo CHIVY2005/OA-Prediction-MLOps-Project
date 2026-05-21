@@ -5,7 +5,6 @@ import io
 import base64
 import cv2
 import torch
-import numpy as np
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
@@ -15,7 +14,6 @@ import json
 import logging
 from datetime import datetime
 from collections import defaultdict
-import asyncio
 import requests
 from dotenv import load_dotenv
 
@@ -61,7 +59,8 @@ class JsonFormatter(logging.Formatter):
 
 handler = logging.StreamHandler()
 handler.setFormatter(JsonFormatter())
-logger.addHandler(handler)
+if not logger.handlers:
+    logger.addHandler(handler)
 
 # --- CẤU HÌNH ---
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
@@ -71,14 +70,20 @@ API_ALERTS_WEBHOOK = os.getenv("api_alerts_webhook")
 AI_PREDICTION_WEBHOOK = os.getenv("ai_prediction_webhook")
 
 def send_discord_alert(message: str):
-    if not API_ALERTS_WEBHOOK: return
+    if not API_ALERTS_WEBHOOK:
+        return
     try:
-        requests.post(API_ALERTS_WEBHOOK, json={"content": f"🚨 **API ALERT**\n{message}"})
+        requests.post(
+            API_ALERTS_WEBHOOK,
+            json={"content": f"[API ALERT]\n{message}"},
+            timeout=10,
+        )
     except Exception as e:
         logger.error(f"Failed to send alert to Discord: {e}")
 
 def send_discord_prediction(image_bytes: bytes, filename: str, result: str, confidence: float, process_time: float):
-    if not AI_PREDICTION_WEBHOOK: return
+    if not AI_PREDICTION_WEBHOOK:
+        return
     try:
         # 1. Định nghĩa file ảnh để gửi
         files = {
@@ -200,20 +205,22 @@ def load_predictor():
     global model
     try:
         print("[...] Dang load model...")
-        model = build_model()
-        
+        loaded_model = build_model()
+
         # Load weights
         model_name = CFG['train']['save_name']
         model_path = os.path.join(CFG['paths']['models'], model_name)
-        
+
         # map_location de chay duoc ca tren may khong co GPU
         checkpoint = torch.load(model_path, map_location=device)
-        model.load_state_dict(checkpoint)
-        
-        model.to(device)
-        model.eval()
+        loaded_model.load_state_dict(checkpoint)
+
+        loaded_model.to(device)
+        loaded_model.eval()
+        model = loaded_model
         print(f"[OK] Model loaded from {model_path}")
     except Exception as e:
+        model = None
         print(f"[ERROR] Loi load model: {e}")
         send_discord_alert(f"Failed to load model on startup!\nError: `{str(e)}`")
 
@@ -240,7 +247,12 @@ async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...
             "max_size_bytes": MAX_FILE_SIZE
         })
         # Send Discord alert for oversized file
-        send_discord_alert(f"Oversized file blocked\nFilename: `{file.filename}`\nSize: `{len(contents) / 1024 / 1024:.2f} MB`\nLimit: `{MAX_FILE_SIZE / 1024 / 1024:.2f} MB`")
+        send_discord_alert(
+            "Oversized file blocked\n"
+            f"Filename: `{file.filename}`\n"
+            f"Size: `{len(contents) / 1024 / 1024:.2f} MB`\n"
+            f"Limit: `{MAX_FILE_SIZE / 1024 / 1024:.2f} MB`"
+        )
         raise HTTPException(status_code=413, detail="File too large")
     
     # 1. Doc anh
@@ -252,7 +264,10 @@ async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...
             "error": str(e)
         })
         raise HTTPException(status_code=400, detail="Invalid image file")
-    
+
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+
     # 2. Preprocess
     transform = get_transforms()['val']
     input_tensor = transform(image).unsqueeze(0).to(device)
@@ -289,7 +304,7 @@ async def predict(background_tasks: BackgroundTasks, file: UploadFile = File(...
             "file_name": file.filename,
             "error": str(e)
         })
-        # Nếu lỗi, heatmap_base64 vẫn là chuỗi rỗng "", API vẫn trả về kết quả dự đoán chứ không sập (500)
+        # Neu loi heatmap, API van tra ve prediction thay vi sap voi 500.
     
     logger.info("Prediction made", extra={
             "file_name": file.filename,

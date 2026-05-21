@@ -1,6 +1,7 @@
 -r base.txt
 # Development tools
 pytest
+httpx
 black
 flake8
 isort

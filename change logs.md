@@ -5,6 +5,27 @@
 2. Adjustments: for adjust existing files, include codes and implements
 3. Intend: for what's to do next
 
+### 5-21-2026
+
+1. Add:
+- Added FastAPI reliability tests for health checks, file validation, model-not-loaded behavior, and mocked prediction success.
+- Added `httpx` to development requirements for FastAPI `TestClient`.
+
+2. Adjustments:
+- Updated CI so tests fail the build when they fail, and flake8 checks critical Python errors while excluding local virtual environments.
+- Hardened `deployment/api/main.py` so failed startup leaves `model = None`, `/predict` returns `503 Model not loaded`, Discord alerts use request timeouts, and logger handlers are not duplicated during reload/test imports.
+- Updated documentation for Hugging Face Spaces as the production user-testing path: the Space serves the Web UI at `/`, calls same-origin `/predict`, displays prediction/heatmap to users, and sends prediction images/heatmaps to Discord through `ai_prediction_webhook`.
+- Installed runtime/test dependencies into `.venv` and verified tests pass locally.
+
+3. Intend:
+- Migrate FastAPI startup from deprecated `on_event` to lifespan handlers.
+- Add a lightweight smoke check for the deployed Hugging Face Space after push.
+
+### 5-20-2026
+
+2. Adjustments:
+- Fix: Resolved API Error (500) during image upload on Hugging Face Spaces by fixing a Python logging conflict. Renamed `filename` to `file_name` in `logger.info` extra fields and removed `exc_info` from `extra` in exception handlers to prevent `KeyError` conflicts with reserved `LogRecord` attributes.
+- Fix: Updated `JsonFormatter` in `deployment/api/main.py` to properly serialize custom extra fields for MLOps JSON logging.
 
 ### 5-17-2026
 

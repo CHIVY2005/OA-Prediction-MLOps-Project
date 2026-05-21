@@ -14,12 +14,11 @@ This document provides an overview of the purpose and functionality of each file
   - `kneeKL224/`: The knee osteoarthritis dataset split into train, validation, and test sets.
 - **deployment/**: Contains all files related to deploying the model as a service.
   - **api/**: FastAPI application for serving predictions.
-    - `main.py`: Entry point for the API; handles model loading, prediction endpoints, and heatmap generation.
+    - `main.py`: Entry point for the Hugging Face Space app; serves the Web UI at `/`, handles `/predict`, loads the model, generates Grad-CAM heatmaps, and sends Discord webhook monitoring events.
   - **docker/**: Docker-related files for containerization.
     - `docker-compose.yml`: Defines services for running the application with Docker Compose.
-    - `Dockerfile`: Instructions for building the Docker image.
   - **web_ui/**: Web interface for interacting with the model.
-    - `index.html`: Main HTML file for the web UI.
+    - `index.html`: Main HTML file served by FastAPI in production.
     - `assets/`: Static assets (CSS, JavaScript, images) for the web UI.
 - **experiments/**: For research and experimentation.
   - **notebooks/**: Jupyter notebooks for data exploration, model prototyping, etc.
@@ -45,14 +44,16 @@ This document provides an overview of the purpose and functionality of each file
 ## Key Files
 
 - `README.md`: Overview of the project and instructions for getting started.
+- `Dockerfile`: Root Dockerfile used by Hugging Face Spaces. It exposes port `7860` and runs `deployment.api.main:app`.
 - `MLOPS_JOURNEY.md`: Document detailing the MLOps journey and lessons learned.
 - `change logs.md`: History of changes made to the project.
 - `LICENSE`: License information.
 - `.gitignore`: Specifies files and directories to be ignored by Git.
-- `.env`: (Not committed to Git) Contains sensitive environment variables like `api_alerts_webhook` and `ai_prediction_webhook` for Discord monitoring.
+- `.env`: Local-only environment variables. In Hugging Face Spaces, configure `api_alerts_webhook` and `ai_prediction_webhook` in Space secrets instead.
 
 ## Notes
 
 - The `src/` directory is designed to be importable as a module. The `deployment/api/main.py` adjusts the system path to import from `src`.
 - The `experiments/` directory is isolated from the production code to keep the main repository clean.
 - The `monitoring/` and `reports/` directories are placeholders for future work on model monitoring and reporting.
+- The production user flow is hosted on Hugging Face Space at `https://huggingface.co/spaces/bindeptrai/OA-PREDICTON-MLOps`; users should open the Space app and upload images through the FastAPI-served Web UI.

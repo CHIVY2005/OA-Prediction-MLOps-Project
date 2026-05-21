@@ -131,15 +131,15 @@ Deploy the trained model as a REST API with a user-friendly web interface.
    - Health check endpoint (`/`)
 
 2. **Docker Containerization** (`deployment/docker/`):
-   - `Dockerfile`:
+   - Root `Dockerfile`:
      * Base image: python:3.9-slim
      * Installs system dependencies and python dependencies
      * Copies source code
-     * Exposes port 8000
-     * Runs uvicorn server
+     * Exposes port 7860 for Hugging Face Spaces
+     * Runs `uvicorn deployment.api.main:app --host 0.0.0.0 --port 7860`
    - `docker-compose.yml`:
      * Defines api service
-     * Maps port 8000:8000
+     * Maps port 7860:7860
      * Optional volume mounts for development
 
 3. **CI/CD Pipeline** (`.github/workflows/`):
@@ -154,12 +154,12 @@ Deploy the trained model as a REST API with a user-friendly web interface.
      * Send image to `/predict` endpoint
      * Display prediction result and confidence
      * Show Grad-CAM heatmap overlay
-   - Served via Python's http.server (for simplicity) or can be deployed with Docker/nginx
+   - Served by the same FastAPI app at `/` on Hugging Face Spaces, so the browser calls the same-origin `/predict` endpoint
 
 ### Output
-- Running API service accessible at http://localhost:8000
-- Interactive web UI at http://localhost:3000/web_ui/ (when served separately)
-- API documentation at http://localhost:8000/docs (Swagger UI)
+- Production Space page at https://huggingface.co/spaces/bindeptrai/OA-PREDICTON-MLOps
+- Interactive Web UI served by FastAPI at the Space app root
+- API documentation available at `/docs` on the Space app URL
 
 ## Phase 4: Monitoring & Maintenance
 
@@ -230,16 +230,17 @@ Ensure model performance remains stable over time and detect issues early.
 3. **Deployment**:
    - Build Docker image: `docker compose -f deployment/docker/docker-compose.yml build`
    - Start services: `docker compose -f deployment/docker/docker-compose.yml up`
-   - API available at http://localhost:7860
-   - Web UI served separately or via reverse proxy
+   - Local API/Web UI available at http://localhost:7860
+   - Production API/Web UI available through Hugging Face Spaces
 
 4. **Usage**:
-   - User uploads knee X-ray via web UI
+   - User opens the Hugging Face Space and uploads a knee X-ray via Web UI
    - API processes image and returns:
      * Prediction: KL grade (0-4)
      * Confidence: percentage score
      * Heatmap: visual explanation highlighting relevant regions
    - Results displayed in web interface
+   - Successful predictions are sent to Discord through `ai_prediction_webhook` with the image/heatmap, class, confidence, and latency
 
 5. **Maintenance** (Future):
    - Monitoring detects data drift from new hospital data

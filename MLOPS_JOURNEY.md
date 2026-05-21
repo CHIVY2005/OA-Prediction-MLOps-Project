@@ -31,26 +31,26 @@ Before deployment, the model undergoes verification:
 - **Explainability (Grad-CAM)**: To trust the AI, we implemented Grad-CAM in `src/utils.py`. This highlights *where* the model is looking (e.g., bone edges, joint space) to make its decision.
 
 ## 5. Deployment Information
-We have two interfaces for the user:
-1.  **Modern Web UI (`web_ui/`)**: A fast, premium interface built with HTML/CSS/JS.
-2.  **Legacy App (`ui/app.py`)**: A Streamlit prototype for quick internal demoing.
+We have two interfaces:
+1.  **Production Web UI (`deployment/web_ui/`)**: A fast HTML/CSS/JS interface served directly by FastAPI on Hugging Face Spaces.
+2.  **Legacy Streamlit App (`deployment/web_ui/app.py`)**: A prototype kept for internal demoing.
 
-The backend (`api/main.py`) using **FastAPI** serves the model to both interfaces, ensuring consistent logic.
+The backend (`deployment/api/main.py`) using **FastAPI** serves the Web UI at `/`, exposes `/predict`, returns prediction results to users, and sends prediction images/heatmaps to Discord through `ai_prediction_webhook`.
 
 **Containerization (Docker)**:
 We have containerized the application to ensure consistency across environments.
-- **API Container**: Runs the FastAPI backend.
-- **UI Container**: Runs the Streamlit app.
-- **Orchestration**: `docker-compose` manages both services, handling networking and startup dependency.
+- **Hugging Face Space Container**: Runs the FastAPI backend and serves the Web UI from the same origin.
+- **Port**: The root Dockerfile exposes `7860`, which is the native Hugging Face Spaces app port.
+- **Local orchestration**: `deployment/docker/docker-compose.yml` can run the same app locally for verification.
 
 ## 6. Continuous Improvement & Monitoring (CI/CD)
 - **Versioning**: Code is versioned with Git.
 - **Reproducibility**: `requirements.txt` ensures the environment is consistent.
 - **Containerization**: Fully containerized API using Docker and Docker Compose.
-- **CI/CD Pipeline**: GitHub Actions are set up for Continuous Integration (testing with `pytest`, linting with `flake8`) and Continuous Deployment (building and pushing Docker images to GHCR). Pipeline statuses (Passed/Failed) are automatically reported to Discord via rich, styled cards showing the actor and branch name. Deployment to Hugging Face Spaces is handled via an elegant local **Dual-Remote Git push** configuration which pushes to both GitHub and Hugging Face simultaneously.
+- **CI/CD Pipeline**: GitHub Actions are set up for Continuous Integration (testing with `pytest`, linting with `flake8`) and Continuous Deployment (building and pushing Docker images to GHCR). Pipeline statuses (Passed/Failed) are automatically reported to Discord via rich, styled cards showing the actor and branch name. Deployment to Hugging Face Spaces is handled via a local **Dual-Remote Git push** configuration which pushes to both GitHub and Hugging Face simultaneously.
 - **Real-time Monitoring (Discord Webhooks)**:
     - **🚨 Red Alert (#api-alerts)**: Instantly notifies the team of critical failures (500 errors, rate limit abuses, oversized files, or model startup failures).
-    - **📊 Gold Tier (#ai-predictions)**: A live feed of all successful predictions with images, results, confidence scores, and processing times. This allows visual monitoring of data drift and model accuracy in production.
+    - **📊 Gold Tier (#ai-predictions)**: A live feed of successful predictions from the Hugging Face Space with the image/heatmap, result, confidence score, and processing time. This allows visual monitoring of data drift and model accuracy in production.
 - **Future Steps**:
     - **Data Versioning**: Implement **DVC (Data Version Control)** to manage large datasets and track changes in data over time.
     - **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.
