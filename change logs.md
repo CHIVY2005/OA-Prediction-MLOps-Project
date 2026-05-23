@@ -5,6 +5,15 @@
 2. Adjustments: for adjust existing files, include codes and implements
 3. Intend: for what's to do next
 
+### 5-23-2026
+
+1. Add:
+- Added `@app.on_event("startup")` hook in FastAPI to send successful startup alerts to the Discord `api-alerts` webhook.
+
+2. Adjustments:
+- Relaxed the constraints in `is_valid_knee_xray()` (increased color variance threshold from 20.0 to 50.0 and expanded ImageNet class check from Top-15 to Top-50) to prevent false rejection of valid X-ray images.
+- Fixed an issue where the Discord `ai_prediction` webhook failed to notify on invalid uploads by replacing `raise HTTPException` with `return JSONResponse`, allowing `BackgroundTasks` to complete properly.
+
 ### 5-21-2026
 
 1. Add:

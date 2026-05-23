@@ -282,6 +282,10 @@ def startup_events():
     threading.Thread(target=load_vn_cidr, daemon=True).start()
 
 @app.on_event("startup")
+def notify_startup():
+    send_discord_alert("✅ Knee OA Prediction API has started successfully!")
+
+@app.on_event("startup")
 def load_predictor():
     global model
     try:
@@ -338,7 +342,7 @@ def is_valid_knee_xray(image: Image.Image) -> tuple[bool, float]:
             diff_br = np.mean(np.abs(img_np[:, :, 2].astype(np.int16) - img_np[:, :, 0].astype(np.int16)))
             avg_color_diff = (diff_rg + diff_gb + diff_br) / 3.0
             
-            if avg_color_diff > 20.0:
+            if avg_color_diff > 50.0:  # Nới lỏng từ 20.0 lên 50.0
                 # Ảnh màu đậm, chắc chắn không phải X-quang
                 return False, 0.95 + (avg_color_diff / 1000.0 if avg_color_diff < 50.0 else 0.04)
 
@@ -358,11 +362,11 @@ def is_valid_knee_xray(image: Image.Image) -> tuple[bool, float]:
         # Class index 906: 'x-ray, x-ray picture, roentgenogram'
         xray_prob = val_probs[906].item()
         
-        # Lấy Top 15 dự đoán
-        top15_prob, top15_catid = torch.topk(val_probs, 15)
-        is_xray_in_top15 = 906 in top15_catid.tolist()
+        # Lấy Top 50 dự đoán (nới lỏng từ 15 lên 50)
+        top50_prob, top50_catid = torch.topk(val_probs, 50)
+        is_xray_in_top50 = 906 in top50_catid.tolist()
         
-        if xray_prob >= 0.05 or is_xray_in_top15:
+        if xray_prob >= 0.01 or is_xray_in_top50:  # Nới lỏng xác suất từ 0.05 xuống 0.01
             # Được dự đoán là X-quang!
             return True, max(xray_prob, 0.85)
         else:
@@ -430,9 +434,9 @@ async def predict(request: Request, background_tasks: BackgroundTasks, file: Upl
             filename=file.filename,
             confidence=validation_conf
         )
-        raise HTTPException(
+        return JSONResponse(
             status_code=400, 
-            detail="Ảnh tải lên không phải là ảnh chụp X-quang khớp gối. Vui lòng gửi lại ảnh đúng yêu cầu."
+            content={"detail": "Ảnh tải lên không phải là ảnh chụp X-quang khớp gối. Vui lòng gửi lại ảnh đúng yêu cầu."}
         )
 
     if model is None:
