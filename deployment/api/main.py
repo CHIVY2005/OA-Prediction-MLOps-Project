@@ -96,13 +96,15 @@ print(f"[CONFIG] ai_prediction_webhook: {mask_webhook(AI_PREDICTION_WEBHOOK)}")
 
 def send_discord_alert(message: str):
     if not API_ALERTS_WEBHOOK:
+        print("[CONFIG ALERT] API_ALERTS_WEBHOOK is not configured.")
         return
     try:
-        requests.post(
+        res = requests.post(
             API_ALERTS_WEBHOOK,
             json={"content": f"[API ALERT]\n{message}"},
             timeout=10,
         )
+        print(f"[DISCORD ALERT] Status: {res.status_code}, Response: {res.text[:100]}")
     except Exception as e:
         logger.error(f"Failed to send alert to Discord: {e}")
 
@@ -168,12 +170,13 @@ def send_discord_invalid_upload(image_bytes: bytes, filename: str, confidence: f
             ]
         }
 
-        requests.post(
+        res = requests.post(
             AI_PREDICTION_WEBHOOK, 
             files=files, 
             data={"payload_json": json.dumps(payload)},
             timeout=10
         )
+        print(f"[DISCORD INVALID UPLOAD] Status: {res.status_code}, Response: {res.text[:100]}")
     except Exception as e:
         logger.error(f"Failed to send invalid upload alert to Discord: {e}")
 
@@ -359,7 +362,8 @@ def is_valid_knee_xray(image: Image.Image) -> tuple[bool, float]:
     Kết hợp:
     1. Kiểm tra màu sắc (Loại biên ảnh màu như chó, mèo, cảnh vật).
     2. Kiểm tra tỷ lệ vùng xám (Loại biên ảnh sơ đồ, flowchart, văn bản synthetic).
-    3. Kiểm tra MobileNetV3 (Loại biên ảnh vật thể grayscale rõ nét khác).
+    3. Kiểm tra đường thẳng Hough Line (Phát hiện đường kẻ thẳng nhân tạo trong sơ đồ/bản vẽ).
+    4. Kiểm tra MobileNetV3 (Loại biên ảnh vật thể grayscale rõ nét khác).
     Trả về: (is_valid, confidence)
     """
     try:
@@ -367,9 +371,21 @@ def is_valid_knee_xray(image: Image.Image) -> tuple[bool, float]:
         if image.width < 50 or image.height < 50:
             return True, 1.0
 
-        # 1. Kiểm tra màu sắc (Grayscale/Color Variance)
         img_np = np.array(image)
-        if len(img_np.shape) == 3 and img_np.shape[2] == 3:
+        
+        # Chuyển đổi sang ảnh grayscale để kiểm tra cấu trúc
+        if len(img_np.shape) == 3:
+            if img_np.shape[2] == 3:
+                gray_img = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+            elif img_np.shape[2] == 4:
+                gray_img = cv2.cvtColor(img_np, cv2.COLOR_RGBA2GRAY)
+            else:
+                gray_img = img_np[:, :, 0]
+        else:
+            gray_img = img_np
+
+        # 1. Kiểm tra màu sắc (Chỉ áp dụng nếu là ảnh có nhiều kênh màu RGB/RGBA)
+        if len(img_np.shape) == 3 and img_np.shape[2] in [3, 4]:
             diff_rg = np.mean(np.abs(img_np[:, :, 0].astype(np.int16) - img_np[:, :, 1].astype(np.int16)))
             diff_gb = np.mean(np.abs(img_np[:, :, 1].astype(np.int16) - img_np[:, :, 2].astype(np.int16)))
             diff_br = np.mean(np.abs(img_np[:, :, 2].astype(np.int16) - img_np[:, :, 0].astype(np.int16)))
@@ -379,15 +395,22 @@ def is_valid_knee_xray(image: Image.Image) -> tuple[bool, float]:
                 # Ảnh màu đậm, chắc chắn không phải X-quang
                 return False, 0.95 + (avg_color_diff / 1000.0 if avg_color_diff < 50.0 else 0.04)
 
-            # 2. Kiểm tra tỷ lệ vùng xám (X-quang khớp gối thực tế có vùng xương/mô mềm xám diện tích lớn)
-            # Ảnh sơ đồ, flowchart chủ yếu là nền đen (0) và chữ trắng (255), rất ít điểm ảnh xám trung tính.
-            gray_img = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-            mid_gray_pixels = np.sum((gray_img >= 25) & (gray_img <= 230))
-            mid_gray_ratio = mid_gray_pixels / gray_img.size
-            
-            if mid_gray_ratio < 0.20:
-                # Quá ít vùng xám (dưới 20%), chắc chắn là sơ đồ hoặc bản vẽ nét
-                return False, 0.90
+        # 2. Kiểm tra tỷ lệ vùng xám (X-quang khớp gối thực tế có vùng xương/mô mềm xám diện tích lớn)
+        # Ảnh sơ đồ, flowchart chủ yếu là nền đen (0) và chữ trắng (255), rất ít điểm ảnh xám trung tính.
+        mid_gray_pixels = np.sum((gray_img >= 25) & (gray_img <= 230))
+        mid_gray_ratio = mid_gray_pixels / gray_img.size
+        
+        if mid_gray_ratio < 0.20:
+            # Quá ít vùng xám (dưới 20%), chắc chắn là sơ đồ hoặc bản vẽ nét
+            return False, 0.90
+
+        # 2.5. Kiểm tra đường thẳng tắp (Hough Line Transform) - Phát hiện các đường kẻ thẳng của sơ đồ, flowchart
+        edges = cv2.Canny(gray_img, 50, 150, apertureSize=3)
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, minLineLength=50, maxLineGap=5)
+        num_lines = len(lines) if lines is not None else 0
+        if num_lines > 8:
+            # Sơ đồ/flowchart có rất nhiều đường thẳng song song/nối tiếp (cạnh hộp, mũi tên)
+            return False, 0.85 + (num_lines / 100.0 if num_lines < 15 else 0.10)
 
         # 3. Kiểm tra bằng MobileNetV3 (ImageNet-1k)
         if validation_model is not None:
@@ -418,6 +441,20 @@ def is_valid_knee_xray(image: Image.Image) -> tuple[bool, float]:
     except Exception as e:
         logger.error(f"Lỗi khi kiểm tra ảnh X-quang: {e}")
         return True, 1.0
+
+@app.get("/debug-env")
+def debug_env():
+    import os
+    env_keys = list(os.environ.keys())
+    return {
+        "api_alerts_webhook_loaded": bool(API_ALERTS_WEBHOOK),
+        "ai_prediction_webhook_loaded": bool(AI_PREDICTION_WEBHOOK),
+        "api_alerts_webhook_masked": mask_webhook(API_ALERTS_WEBHOOK) if API_ALERTS_WEBHOOK else None,
+        "ai_prediction_webhook_masked": mask_webhook(AI_PREDICTION_WEBHOOK) if AI_PREDICTION_WEBHOOK else None,
+        "os_env_keys": [k for k in env_keys if "webhook" in k.lower() or "secret" in k.lower() or "key" in k.lower() or "id" in k.lower() or k == "SPACE_ID"],
+        "root_dir": root_dir,
+        "dot_env_exists": os.path.exists(os.path.join(root_dir, ".env"))
+    }
 
 @app.post("/predict")
 @limiter.limit("10/minute")

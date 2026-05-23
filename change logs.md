@@ -11,13 +11,17 @@
 - Added `@app.on_event("startup")` hook in FastAPI to send successful startup alerts to the Discord `api-alerts` webhook, with auto-detection of Hugging Face `SPACE_ID`.
 
 2. Adjustments:
-- Enhanced `is_valid_knee_xray()` into a robust 3-stage validation pipeline:
-  1. **Color check** (rejects color images like cats, dogs with color difference > 30.0).
-  2. **Mid-gray ratio check** (rejects synthetic images like flowcharts, diagrams, text where mid-gray pixels make up < 20% of the image).
-  3. **MobileNetV3 check** (rejects other grayscale natural objects predicted with confidence > 35%).
+- Enhanced `is_valid_knee_xray()` into a robust 4-stage validation pipeline:
+  1. **Color check** (rejects color images with RGB variance > 30.0, only applies to multi-channel images).
+  2. **Mid-gray ratio check** (runs on all images; rejects synthetic diagrams/flowcharts with mid-gray pixels < 20%).
+  3. **Hough Line check** (runs on all images; rejects flowcharts/text diagrams by counting straight lines; triggers if line count > 8).
+  4. **MobileNetV3 check** (rejects other grayscale natural objects predicted with confidence > 35%).
+- Restructured `is_valid_knee_xray()` so that stages 2, 3, and 4 execute correctly on single-channel grayscale images (previously they were nested inside the multi-channel color check block and bypassed completely for single-channel flowcharts).
 - Added an image size bypass (size < 50x50) in `is_valid_knee_xray()` to ensure pytest dummy images don't fail validation checks.
 - Fixed an issue where the Discord `ai_prediction` webhook failed to notify on invalid uploads by replacing `raise HTTPException` with `return JSONResponse`, allowing `BackgroundTasks` to complete properly. Supported robust environment variable parsing (handling lowercase/uppercase, singular/plural naming variations like `api_alert_webhook` / `API_ALERTS_WEBHOOK`) to ensure compatibility with Hugging Face Space secrets, and added configuration printing to container logs to assist debugging.
 - Updated `load_dotenv` to load from the project root directory, fixing a bug where local runs started from subdirectories (like `deployment/api/` or `deployment/`) failed to load the `.env` file and did not trigger Discord notifications.
+- Added a `/debug-env` endpoint to print loaded webhook statuses and masked URLs to help diagnose configuration issues on Hugging Face Spaces.
+- Added status and response logging inside Discord webhook calls to log response codes from Discord.
 
 ### 5-21-2026
 
