@@ -17,6 +17,7 @@
   3. **MobileNetV3 check** (rejects other grayscale natural objects predicted with confidence > 35%).
 - Added an image size bypass (size < 50x50) in `is_valid_knee_xray()` to ensure pytest dummy images don't fail validation checks.
 - Fixed an issue where the Discord `ai_prediction` webhook failed to notify on invalid uploads by replacing `raise HTTPException` with `return JSONResponse`, allowing `BackgroundTasks` to complete properly. Supported robust environment variable parsing (handling lowercase/uppercase, singular/plural naming variations like `api_alert_webhook` / `API_ALERTS_WEBHOOK`) to ensure compatibility with Hugging Face Space secrets, and added configuration printing to container logs to assist debugging.
+- Updated `load_dotenv` to load from the project root directory, fixing a bug where local runs started from subdirectories (like `deployment/api/` or `deployment/`) failed to load the `.env` file and did not trigger Discord notifications.
 
 ### 5-21-2026
 

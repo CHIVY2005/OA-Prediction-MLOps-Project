@@ -18,11 +18,11 @@ import requests
 from dotenv import load_dotenv
 import numpy as np
 
-load_dotenv()
-
-# --- SETUP ĐƯỜNG DẪN ---
 # Thêm thư mục gốc dự án vào sys.path để import được src
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(root_dir)
+
+load_dotenv(os.path.join(root_dir, ".env"))
 
 from src.config_loader import CFG
 from src.model import build_model
