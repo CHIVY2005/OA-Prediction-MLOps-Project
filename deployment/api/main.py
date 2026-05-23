@@ -67,8 +67,32 @@ if not logger.handlers:
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_ALERT_WEBHOOK_URL") # Keep this for backward compatibility if needed
-API_ALERTS_WEBHOOK = os.getenv("api_alerts_webhook") or os.getenv("API_ALERTS_WEBHOOK")
-AI_PREDICTION_WEBHOOK = os.getenv("ai_prediction_webhook") or os.getenv("AI_PREDICTION_WEBHOOK")
+API_ALERTS_WEBHOOK = (
+    os.getenv("api_alerts_webhook") 
+    or os.getenv("API_ALERTS_WEBHOOK") 
+    or os.getenv("api_alert_webhook") 
+    or os.getenv("API_ALERT_WEBHOOK")
+)
+AI_PREDICTION_WEBHOOK = (
+    os.getenv("ai_prediction_webhook") 
+    or os.getenv("AI_PREDICTION_WEBHOOK") 
+    or os.getenv("ai_predictions_webhook") 
+    or os.getenv("AI_PREDICTIONS_WEBHOOK")
+)
+
+def mask_webhook(url: str) -> str:
+    if not url:
+        return "Not Set"
+    parts = url.split("/")
+    if len(parts) > 2:
+        last_part = parts[-1]
+        masked_last = last_part[:5] + "..." + last_part[-5:] if len(last_part) > 10 else "..."
+        parts[-1] = masked_last
+        return "/".join(parts)
+    return "Invalid URL"
+
+print(f"[CONFIG] api_alerts_webhook: {mask_webhook(API_ALERTS_WEBHOOK)}")
+print(f"[CONFIG] ai_prediction_webhook: {mask_webhook(AI_PREDICTION_WEBHOOK)}")
 
 def send_discord_alert(message: str):
     if not API_ALERTS_WEBHOOK:
