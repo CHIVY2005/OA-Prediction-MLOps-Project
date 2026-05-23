@@ -327,12 +327,9 @@ def load_validation_model():
 def is_valid_knee_xray(image: Image.Image) -> tuple[bool, float]:
     """
     Kiểm tra xem ảnh tải lên có phải là ảnh chụp X-quang khớp gối hay không.
+    Sử dụng độ lệch màu sắc để phát hiện ảnh màu (không phải X-quang).
     Trả về: (is_valid, confidence)
     """
-    if validation_model is None:
-        # Nếu không load được model check thì bỏ qua để tránh chặn nhầm
-        return True, 1.0
-
     try:
         # 1. Kiểm tra màu sắc (Grayscale/Color Variance)
         img_np = np.array(image)
@@ -342,37 +339,14 @@ def is_valid_knee_xray(image: Image.Image) -> tuple[bool, float]:
             diff_br = np.mean(np.abs(img_np[:, :, 2].astype(np.int16) - img_np[:, :, 0].astype(np.int16)))
             avg_color_diff = (diff_rg + diff_gb + diff_br) / 3.0
             
-            if avg_color_diff > 50.0:  # Nới lỏng từ 20.0 lên 50.0
+            # X-ray chuẩn thường là grayscale (avg_color_diff gần bằng 0)
+            # Ảnh chụp lại bằng điện thoại/màn hình có thể hơi ám màu (avg_color_diff khoảng 5 - 20)
+            # Ảnh màu bình thường (như chó, mèo, cảnh vật) sẽ có avg_color_diff > 30.0
+            if avg_color_diff > 30.0:
                 # Ảnh màu đậm, chắc chắn không phải X-quang
                 return False, 0.95 + (avg_color_diff / 1000.0 if avg_color_diff < 50.0 else 0.04)
 
-        # 2. Kiểm tra bằng MobileNetV3 (ImageNet-1k)
-        from torchvision import transforms
-        val_transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        val_tensor = val_transform(image).unsqueeze(0).to(device)
-        
-        with torch.no_grad():
-            val_output = validation_model(val_tensor)
-            val_probs = torch.nn.functional.softmax(val_output, dim=1)[0]
-            
-        # Class index 906: 'x-ray, x-ray picture, roentgenogram'
-        xray_prob = val_probs[906].item()
-        
-        # Lấy Top 50 dự đoán (nới lỏng từ 15 lên 50)
-        top50_prob, top50_catid = torch.topk(val_probs, 50)
-        is_xray_in_top50 = 906 in top50_catid.tolist()
-        
-        if xray_prob >= 0.01 or is_xray_in_top50:  # Nới lỏng xác suất từ 0.05 xuống 0.01
-            # Được dự đoán là X-quang!
-            return True, max(xray_prob, 0.85)
-        else:
-            # Không phải ảnh X-quang
-            conf_not_xray = 1.0 - xray_prob
-            return False, conf_not_xray
+        return True, 1.0
 
     except Exception as e:
         logger.error(f"Lỗi khi kiểm tra ảnh X-quang: {e}")

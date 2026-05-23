@@ -11,7 +11,7 @@
 - Added `@app.on_event("startup")` hook in FastAPI to send successful startup alerts to the Discord `api-alerts` webhook.
 
 2. Adjustments:
-- Relaxed the constraints in `is_valid_knee_xray()` (increased color variance threshold from 20.0 to 50.0 and expanded ImageNet class check from Top-15 to Top-50) to prevent false rejection of valid X-ray images.
+- Refactored `is_valid_knee_xray()` to rely entirely on average color difference validation (using a threshold of 30.0), completely eliminating the MobileNetV3 image classification check. This fixes the issue where valid knee X-rays were incorrectly rejected (since MobileNetV3 with ImageNet weights does not reliably predict class 906 'x-ray' for knee X-rays), while still robustly rejecting invalid color uploads (like cats, dogs, etc.).
 - Fixed an issue where the Discord `ai_prediction` webhook failed to notify on invalid uploads by replacing `raise HTTPException` with `return JSONResponse`, allowing `BackgroundTasks` to complete properly.
 
 ### 5-21-2026
