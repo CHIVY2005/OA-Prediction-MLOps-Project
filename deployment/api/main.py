@@ -94,12 +94,46 @@ def mask_webhook(url: str) -> str:
 print(f"[CONFIG] api_alerts_webhook: {mask_webhook(API_ALERTS_WEBHOOK)}")
 print(f"[CONFIG] ai_prediction_webhook: {mask_webhook(AI_PREDICTION_WEBHOOK)}")
 
+DISCORD_DOMAINS = ["discord.com", "canary.discord.com", "ptb.discord.com", "discordapp.com"]
+
+def post_to_discord(url: str, **kwargs) -> requests.Response:
+    if not url:
+        raise ValueError("Webhook URL is empty")
+        
+    last_err = None
+    # Thay thế User-Agent mặc định của Python-requests để tránh bị Cloudflare chặn
+    headers = kwargs.get("headers", {})
+    if "User-Agent" not in headers:
+        headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    kwargs["headers"] = headers
+
+    for domain in DISCORD_DOMAINS:
+        # Tạo URL với domain hiện tại
+        current_url = url
+        for d in DISCORD_DOMAINS:
+            if d in url:
+                current_url = url.replace(d, domain)
+                break
+        try:
+            res = requests.post(current_url, **kwargs)
+            if res.status_code < 400:
+                return res
+            else:
+                print(f"[DISCORD RETRY] Domain {domain} failed with status {res.status_code}: {res.text[:100]}")
+        except Exception as e:
+            print(f"[DISCORD RETRY] Domain {domain} raised error: {e}")
+            last_err = e
+            
+    if last_err:
+        raise last_err
+    raise Exception("All Discord domains failed to respond")
+
 def send_discord_alert(message: str):
     if not API_ALERTS_WEBHOOK:
         print("[CONFIG ALERT] API_ALERTS_WEBHOOK is not configured.")
         return
     try:
-        res = requests.post(
+        res = post_to_discord(
             API_ALERTS_WEBHOOK,
             json={"content": f"[API ALERT]\n{message}"},
             timeout=10,
@@ -147,6 +181,7 @@ def send_discord_prediction(image_bytes: bytes, filename: str, result: str, conf
 
 def send_discord_invalid_upload(image_bytes: bytes, filename: str, confidence: float):
     if not AI_PREDICTION_WEBHOOK:
+        print("[WARNING] AI_PREDICTION_WEBHOOK is not set!")
         return
     try:
         files = {
@@ -170,7 +205,7 @@ def send_discord_invalid_upload(image_bytes: bytes, filename: str, confidence: f
             ]
         }
 
-        res = requests.post(
+        res = post_to_discord(
             AI_PREDICTION_WEBHOOK, 
             files=files, 
             data={"payload_json": json.dumps(payload)},

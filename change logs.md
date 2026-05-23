@@ -22,6 +22,7 @@
 - Updated `load_dotenv` to load from the project root directory, fixing a bug where local runs started from subdirectories (like `deployment/api/` or `deployment/`) failed to load the `.env` file and did not trigger Discord notifications.
 - Added a `/debug-env` endpoint to print loaded webhook statuses and masked URLs to help diagnose configuration issues on Hugging Face Spaces.
 - Added status and response logging inside Discord webhook calls to log response codes from Discord.
+- Implemented a self-healing `post_to_discord` helper function with rotation of Discord API domains (`discord.com`, `canary.discord.com`, `ptb.discord.com`, `discordapp.com`) and a custom Chrome User-Agent header to bypass Cloudflare/Discord IP blocks and Read Timeouts when running on Hugging Face Spaces.
 
 ### 5-21-2026
 
