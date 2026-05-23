@@ -8,7 +8,7 @@
 ### 5-23-2026
 
 1. Add:
-- Added `@app.on_event("startup")` hook in FastAPI to send successful startup alerts to the Discord `api-alerts` webhook.
+- Added `@app.on_event("startup")` hook in FastAPI to send successful startup alerts to the Discord `api-alerts` webhook, with auto-detection of Hugging Face `SPACE_ID`.
 
 2. Adjustments:
 - Enhanced `is_valid_knee_xray()` into a robust 3-stage validation pipeline:
@@ -16,7 +16,7 @@
   2. **Mid-gray ratio check** (rejects synthetic images like flowcharts, diagrams, text where mid-gray pixels make up < 20% of the image).
   3. **MobileNetV3 check** (rejects other grayscale natural objects predicted with confidence > 35%).
 - Added an image size bypass (size < 50x50) in `is_valid_knee_xray()` to ensure pytest dummy images don't fail validation checks.
-- Fixed an issue where the Discord `ai_prediction` webhook failed to notify on invalid uploads by replacing `raise HTTPException` with `return JSONResponse`, allowing `BackgroundTasks` to complete properly.
+- Fixed an issue where the Discord `ai_prediction` webhook failed to notify on invalid uploads by replacing `raise HTTPException` with `return JSONResponse`, allowing `BackgroundTasks` to complete properly. Supported both lowercase and uppercase environment variables for webhooks (`api_alerts_webhook` and `ai_prediction_webhook`) to ensure compatibility with Hugging Face Space secrets.
 
 ### 5-21-2026
 

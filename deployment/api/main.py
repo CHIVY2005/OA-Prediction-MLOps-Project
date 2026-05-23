@@ -67,8 +67,8 @@ if not logger.handlers:
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_ALERT_WEBHOOK_URL") # Keep this for backward compatibility if needed
-API_ALERTS_WEBHOOK = os.getenv("api_alerts_webhook")
-AI_PREDICTION_WEBHOOK = os.getenv("ai_prediction_webhook")
+API_ALERTS_WEBHOOK = os.getenv("api_alerts_webhook") or os.getenv("API_ALERTS_WEBHOOK")
+AI_PREDICTION_WEBHOOK = os.getenv("ai_prediction_webhook") or os.getenv("AI_PREDICTION_WEBHOOK")
 
 def send_discord_alert(message: str):
     if not API_ALERTS_WEBHOOK:
@@ -283,7 +283,12 @@ def startup_events():
 
 @app.on_event("startup")
 def notify_startup():
-    send_discord_alert("✅ Knee OA Prediction API has started successfully!")
+    space_id = os.getenv("SPACE_ID")
+    if space_id:
+        message = f"✅ Knee OA Prediction API on Hugging Face Space (`{space_id}`) has started successfully!"
+    else:
+        message = "✅ Knee OA Prediction API has started successfully!"
+    send_discord_alert(message)
 
 @app.on_event("startup")
 def load_predictor():
