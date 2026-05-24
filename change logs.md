@@ -5,6 +5,19 @@
 2. Adjustments: for adjust existing files, include codes and implements
 3. Intend: for what's to do next
 
+### 5-24-2026
+
+1. Add:
+- **Feedback Loop UI**: Interactive thumbs-up ("Đúng") and thumbs-down ("Sai") buttons added to the web interface to collect predictions validation.
+- **Dropdown Overriding**: If "Sai" is selected, a dropdown menu is shown allowing users/doctors to specify the actual correct KL Grade (0-4).
+- **Backend feedback endpoint**: `/feedback` POST endpoint to process user votes and store/route target files.
+- **API Cache**: FastAPI caches incoming X-ray images temporarily as `data/feedback/temp/{request_id}.jpg` on `/predict` and routes them on `/feedback` submission.
+- **Testing**: Dedicated unit tests in `tests/test_api.py` covering `/feedback` 404 validation and file routing to correct/incorrect grade folders.
+
+2. Adjustments:
+- Updated frontend JS (`app.js`) to capture unique prediction request IDs and prediction grades, handle yes/no toggles, manage state resets, and submit structured feedback requests.
+- Added custom responsive styling rules in `style.css` for feedback buttons, dropdown selectors, hover effects, and thank-you messages.
+
 ### 5-23-2026
 
 1. Add:

@@ -12,6 +12,7 @@ This document provides an overview of the purpose and functionality of each file
   - `config.yml`: Main configuration file defining data, model, and training parameters.
 - **data/**: Stores the dataset used for training and evaluation.
   - `kneeKL224/`: The knee osteoarthritis dataset split into train, validation, and test sets.
+  - `feedback/`: Dynamically generated folder storing user feedback images. Images are automatically sorted into `correct/` or `incorrect/grade_X/` directories for future retraining loops (this directory is ignored by git).
 - **deployment/**: Contains all files related to deploying the model as a service.
   - **api/**: FastAPI application for serving predictions.
     - `main.py`: Entry point for the Hugging Face Space app; serves the Web UI at `/`, handles `/predict`, loads the model, generates Grad-CAM heatmaps, and sends Discord webhook monitoring events.

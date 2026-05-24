@@ -206,6 +206,11 @@ Ensure model performance remains stable over time and detect issues early.
   * **🚨 Red Alert (#api-alerts)**: Triggers on API 500 errors, rate limit abuse (429), file sizes exceeding 5MB, or model startup failures. Acts as the "emergency room" for the project.
   * **📊 Gold Tier (#ai-predictions)**: Sends successful predictions (Status 200) including the uploaded image, predicted class, confidence percentage, and processing time. Enables real-time visual monitoring for anomalies and data drift.
 - **CI/CD Notifications**: Automated alerts for GitHub Actions pipeline statuses.
+- **Feedback Loop**:
+  * Active UI controls (Thumbs up/down, Grade selector dropdown) collect real-world validation data from users and clinicians.
+  * Correctly predicted images are archived in `data/feedback/correct/{prediction}/`.
+  * Incorrectly predicted images are saved under `data/feedback/incorrect/grade_{corrected_grade}/` using the clinician's overriding grade.
+  * This collected dataset serves as a valuable resource for identifying model weak spots and powering future automated retraining loops.
 - Basic error handling in API (returns prediction even if heatmap fails)
 - Startup logging shows model loading status
 - MLflow tracks training experiments

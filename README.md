@@ -23,6 +23,7 @@ User flow:
 2. Drag and drop a JPEG/PNG knee X-ray image.
 3. Wait for the API to return diagnosis grade, confidence, and Grad-CAM heatmap.
 4. The app also sends the prediction image/heatmap, result, confidence, and latency to Discord through `ai_prediction_webhook`.
+5. Users or doctors can choose "Đúng" or "Sai". If "Sai" (incorrect) is selected, they specify the correct osteoarthritis grade and submit. This moves the cached image from a temp directory to a final folder under `data/feedback/` for future retraining datasets.
 
 The Web UI is served by the same FastAPI app at `/`, and browser uploads call the same-origin `/predict` endpoint. Do not serve `deployment/web_ui` separately for production because the JavaScript expects the backend on the same origin.
 
