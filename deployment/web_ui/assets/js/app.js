@@ -49,32 +49,38 @@ fileInput.addEventListener('change', () => {
 resetBtn.addEventListener('click', resetApp);
 
 // Feedback Event Listeners
-btnFeedbackYes.addEventListener('click', async () => {
-    btnFeedbackYes.classList.add('active');
-    btnFeedbackNo.classList.remove('active');
-    btnFeedbackYes.disabled = true;
-    btnFeedbackNo.disabled = true;
-    correctedSelection.classList.add('hidden');
-    
-    await submitFeedback('correct', null);
-});
+if (btnFeedbackYes) {
+    btnFeedbackYes.addEventListener('click', async () => {
+        btnFeedbackYes.classList.add('active');
+        if (btnFeedbackNo) btnFeedbackNo.classList.remove('active');
+        btnFeedbackYes.disabled = true;
+        if (btnFeedbackNo) btnFeedbackNo.disabled = true;
+        if (correctedSelection) correctedSelection.classList.add('hidden');
+        
+        await submitFeedback('correct', null);
+    });
+}
 
-btnFeedbackNo.addEventListener('click', () => {
-    btnFeedbackNo.classList.add('active');
-    btnFeedbackYes.classList.remove('active');
-    correctedSelection.classList.remove('hidden');
-    thankYouMsg.classList.add('hidden');
-});
+if (btnFeedbackNo) {
+    btnFeedbackNo.addEventListener('click', () => {
+        btnFeedbackNo.classList.add('active');
+        if (btnFeedbackYes) btnFeedbackYes.classList.remove('active');
+        if (correctedSelection) correctedSelection.classList.remove('hidden');
+        if (thankYouMsg) thankYouMsg.classList.add('hidden');
+    });
+}
 
-btnSubmitFeedback.addEventListener('click', async () => {
-    const correctedGrade = correctGradeSelect.value;
-    btnSubmitFeedback.disabled = true;
-    btnFeedbackYes.disabled = true;
-    btnFeedbackNo.disabled = true;
-    
-    await submitFeedback('incorrect', correctedGrade);
-    btnSubmitFeedback.disabled = false;
-});
+if (btnSubmitFeedback) {
+    btnSubmitFeedback.addEventListener('click', async () => {
+        const correctedGrade = correctGradeSelect ? correctGradeSelect.value : "0";
+        btnSubmitFeedback.disabled = true;
+        if (btnFeedbackYes) btnFeedbackYes.disabled = true;
+        if (btnFeedbackNo) btnFeedbackNo.disabled = true;
+        
+        await submitFeedback('incorrect', correctedGrade);
+        btnSubmitFeedback.disabled = false;
+    });
+}
 
 // --- Functions ---
 function handleFile(file) {
@@ -145,13 +151,13 @@ function showResult(data) {
 }
 
 function resetFeedbackUI() {
-    correctedSelection.classList.add('hidden');
-    thankYouMsg.classList.add('hidden');
-    btnFeedbackYes.classList.remove('active');
-    btnFeedbackNo.classList.remove('active');
-    btnFeedbackYes.disabled = false;
-    btnFeedbackNo.disabled = false;
-    correctGradeSelect.value = "0";
+    if (correctedSelection) correctedSelection.classList.add('hidden');
+    if (thankYouMsg) thankYouMsg.classList.add('hidden');
+    if (btnFeedbackYes) btnFeedbackYes.classList.remove('active');
+    if (btnFeedbackNo) btnFeedbackNo.classList.remove('active');
+    if (btnFeedbackYes) btnFeedbackYes.disabled = false;
+    if (btnFeedbackNo) btnFeedbackNo.disabled = false;
+    if (correctGradeSelect) correctGradeSelect.value = "0";
 }
 
 function resetApp() {
@@ -188,15 +194,15 @@ async function submitFeedback(feedbackType, correctedGrade) {
         }
 
         // Show success
-        correctedSelection.classList.add('hidden');
-        thankYouMsg.classList.remove('hidden');
+        if (correctedSelection) correctedSelection.classList.add('hidden');
+        if (thankYouMsg) thankYouMsg.classList.remove('hidden');
 
     } catch (error) {
         console.error(error);
         alert(`Feedback submission failed: ${error.message}`);
-        btnFeedbackYes.disabled = false;
-        btnFeedbackNo.disabled = false;
-        btnFeedbackYes.classList.remove('active');
-        btnFeedbackNo.classList.remove('active');
+        if (btnFeedbackYes) btnFeedbackYes.disabled = false;
+        if (btnFeedbackNo) btnFeedbackNo.disabled = false;
+        if (btnFeedbackYes) btnFeedbackYes.classList.remove('active');
+        if (btnFeedbackNo) btnFeedbackNo.classList.remove('active');
     }
 }
