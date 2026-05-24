@@ -434,7 +434,7 @@ def download_best_model_from_mlflow(dest_path: str) -> bool:
         os.makedirs(local_dir, exist_ok=True)
         
         mlflow.artifacts.download_artifacts(
-            artifact_uri=f"runs/{best_run_id}/best_knee_model.pth",
+            artifact_uri=f"runs:/{best_run_id}/best_knee_model.pth",
             dst_path=local_dir
         )
         
@@ -598,7 +598,11 @@ def debug_env():
         "ai_prediction_webhook_loaded": bool(AI_PREDICTION_WEBHOOK),
         "api_alerts_webhook_masked": mask_webhook(API_ALERTS_WEBHOOK) if API_ALERTS_WEBHOOK else None,
         "ai_prediction_webhook_masked": mask_webhook(AI_PREDICTION_WEBHOOK) if AI_PREDICTION_WEBHOOK else None,
-        "os_env_keys": [k for k in env_keys if "webhook" in k.lower() or "secret" in k.lower() or "key" in k.lower() or "id" in k.lower() or k == "SPACE_ID"],
+        "mlflow_tracking_uri_loaded": bool(os.getenv("MLFLOW_TRACKING_URI")),
+        "mlflow_tracking_username_loaded": bool(os.getenv("MLFLOW_TRACKING_USERNAME")),
+        "mlflow_tracking_password_loaded": bool(os.getenv("MLFLOW_TRACKING_PASSWORD")),
+        "model_download_url_loaded": bool(os.getenv("MODEL_DOWNLOAD_URL")),
+        "os_env_keys": [k for k in env_keys if "webhook" in k.lower() or "secret" in k.lower() or "key" in k.lower() or "id" in k.lower() or "mlflow" in k.lower() or k == "SPACE_ID"],
         "root_dir": root_dir,
         "dot_env_exists": os.path.exists(os.path.join(root_dir, ".env"))
     }
