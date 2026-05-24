@@ -201,6 +201,10 @@ Ensure model performance remains stable over time and detect issues early.
    - Rate limiting to prevent abuse
    - Confidence thresholding for low-confidence predictions
 
+7. **Persistent Feedback Storage**:
+   - Migrate local ephemeral feedback data to a persistent data store (e.g., AWS S3, Hugging Face Persistent Storage, Google Drive).
+   - Ensure feedback images and doctor corrections are securely archived and easily accessible for future model retraining cycles without risk of loss during container restarts.
+
 ### Current Monitoring Capabilities
 - **Discord Webhook System**:
   * **🚨 Red Alert (#api-alerts)**: Triggers on API 500 errors, rate limit abuse (429), file sizes exceeding 5MB, or model startup failures. Acts as the "emergency room" for the project.

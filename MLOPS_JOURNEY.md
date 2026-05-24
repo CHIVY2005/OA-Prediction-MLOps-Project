@@ -60,3 +60,4 @@ We have containerized the application to ensure consistency across environments.
     - **Data Drift Detection**: Implement data drift monitoring using tools like Evidently AI to detect when production data distribution changes compared to training data.
     - **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.
     - **Advanced Monitoring**: Integrate Prometheus/Grafana to monitor system metrics.
+    - **Persistent Feedback Storage**: Migrate the local ephemeral `data/feedback/` directory to a Persistent Storage solution (e.g., Hugging Face Persistent Storage, AWS S3, or Google Drive API). This guarantees that valuable user/clinician feedback is securely preserved across container restarts and can be automatically aggregated for future model retraining loops.
