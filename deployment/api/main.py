@@ -362,18 +362,120 @@ def notify_startup():
         message = "✅ Knee OA Prediction API has started successfully!"
     send_discord_alert(message)
 
+def download_model_from_url(url: str, dest_path: str) -> bool:
+    """Tải file mô hình trực tiếp từ một đường dẫn URL công khai."""
+    try:
+        print(f"[API] Bat dau tai model tu URL: {mask_webhook(url)}")
+        headers = {"User-Agent": "Mozilla/5.0"}
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=45) as response:
+            with open(dest_path, "wb") as f:
+                f.write(response.read())
+        print(f"[API OK] Da tai va luu model vao {dest_path}")
+        return True
+    except Exception as e:
+        print(f"[API ERROR] Khong the tai model tu URL: {e}")
+        return False
+
+def download_best_model_from_mlflow(dest_path: str) -> bool:
+    """Kết nối tới MLflow Tracking Server và tải về file mô hình có độ chính xác val_acc cao nhất."""
+    mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
+    if not mlflow_uri:
+        print("[MLflow] MLFLOW_TRACKING_URI khong duoc thiet lap, bo qua tai tu MLflow.")
+        return False
+        
+    try:
+        import mlflow
+        from mlflow.tracking import MlflowClient
+        
+        print(f"[MLflow] Dang ket noi toi remote server: {mlflow_uri}")
+        mlflow.set_tracking_uri(mlflow_uri)
+        client = MlflowClient()
+        
+        # Lấy experiment name từ cấu hình
+        exp_name = CFG['train']['mlflow_exp_name']
+        experiment = client.get_experiment_by_name(exp_name)
+        if not experiment:
+            # Fallback nếu không tìm thấy experiment cấu hình
+            experiment = client.get_experiment_by_name("Knee_Osteoarthritis_Dev")
+            if not experiment:
+                print(f"[MLflow ERROR] Khong tim thay experiment: {exp_name}")
+                return False
+                
+        # Tìm kiếm các run và sắp xếp theo accuracy giảm dần
+        runs = client.search_runs(
+            experiment_ids=[experiment.experiment_id],
+            order_by=["metrics.val_acc DESC"],
+            max_results=5
+        )
+        
+        if not runs:
+            print("[MLflow ERROR] Khong co run nao trong experiment.")
+            return False
+            
+        # Tìm run đầu tiên có chứa artifact mô hình
+        best_run_id = None
+        for run in runs:
+            run_id = run.info.run_id
+            artifacts = client.list_artifacts(run_id)
+            has_model = any(art.path == "best_knee_model.pth" for art in artifacts)
+            if has_model:
+                best_run_id = run_id
+                break
+                
+        if not best_run_id:
+            print("[MLflow ERROR] Khong tim thay run nao co chua best_knee_model.pth artifact.")
+            return False
+            
+        print(f"[MLflow] Tim thay run {best_run_id} co accuracy cao nhat.")
+        
+        # Tải mô hình về thư mục đích
+        local_dir = os.path.dirname(dest_path)
+        os.makedirs(local_dir, exist_ok=True)
+        
+        mlflow.artifacts.download_artifacts(
+            artifact_uri=f"runs/{best_run_id}/best_knee_model.pth",
+            dst_path=local_dir
+        )
+        
+        if os.path.exists(dest_path):
+            print(f"[MLflow OK] Da tai va luu model thanh cong vao {dest_path}")
+            return True
+        return False
+    except Exception as e:
+        print(f"[MLflow ERROR] Loi khi ket noi va tai tu MLflow: {e}")
+        return False
+
 @app.on_event("startup")
 def load_predictor():
     global model
     try:
-        print("[...] Dang load model...")
+        print("[...] Dang khoi tao model...")
         loaded_model = build_model()
 
-        # Load weights
+        # Lấy thông tin file mô hình
         model_name = CFG['train']['save_name']
         model_path = os.path.join(CFG['paths']['models'], model_name)
 
-        # map_location de chay duoc ca tren may khong co GPU
+        # Nếu mô hình không tồn tại cục bộ, tiến hành tải về
+        if not os.path.exists(model_path):
+            print(f"[API] File model khong tim thay tai {model_path}. Dang tai model tu nguon ngoai...")
+            
+            # 1. Thử tải từ URL chỉ định trong biến môi trường
+            download_url = os.getenv("MODEL_DOWNLOAD_URL")
+            downloaded = False
+            if download_url:
+                downloaded = download_model_from_url(download_url, model_path)
+                
+            # 2. Thử tải từ MLflow remote server
+            if not downloaded:
+                print("[API] Thu tai model tu MLflow Remote Server...")
+                downloaded = download_best_model_from_mlflow(model_path)
+                
+            if not downloaded:
+                raise FileNotFoundError(f"Khong the tim thay file model hoac tai tu URL/MLflow.")
+
+        # Nạp trọng số mô hình vào kiến trúc
         checkpoint = torch.load(model_path, map_location=device)
         loaded_model.load_state_dict(checkpoint)
 
