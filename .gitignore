@@ -235,3 +235,6 @@ logs/*
 !logs/.gitkeep
 __pycache__/
 .ipynb_checkpoints/
+
+# Ignore generated monitoring reports
+monitoring/reports/
