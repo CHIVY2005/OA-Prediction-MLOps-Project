@@ -33,6 +33,10 @@ Set these Space secrets in **Settings > Variables and secrets**:
 
 - `api_alerts_webhook`: Discord webhook for API alerts such as startup failure, rate limits, oversized files, and 500 errors.
 - `ai_prediction_webhook`: Discord webhook for successful prediction monitoring with image/heatmap attachments.
+- `MLFLOW_TRACKING_URI`: MLflow Tracking Server URL (e.g., `https://dagshub.com/tranchivy2005official/OA-Prediction-MLOps-Project.mlflow`).
+- `MLFLOW_TRACKING_USERNAME`: Your DagsHub or MLflow username.
+- `MLFLOW_TRACKING_PASSWORD`: Your DagsHub token or MLflow password.
+- `MODEL_DOWNLOAD_URL` (Optional): Direct URL to download `best_knee_model.pth` directly if you want to bypass MLflow.
 
 The Space uses the root `Dockerfile`, exposes port `7860`, and starts:
 

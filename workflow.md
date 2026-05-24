@@ -1,16 +1,17 @@
-# End-to-End Workflow
+# End-to-End MLOps Workflow
 
-This document describes the complete workflow from data preparation to model deployment and monitoring in the OA-Prediction-MLOps project.
+This document describes the complete workflow from data preparation to model deployment, monitoring, and automated retraining in the OA-Prediction-MLOps project.
 
 ## Overview
 
-The workflow follows a standard MLOps pipeline with four main phases:
-1. Data Engineering & Preparation
-2. Model Development & Training
-3. Deployment & Serving
-4. Monitoring & Maintenance
+The workflow follows a closed-loop MLOps pipeline divided into five main phases:
+1. **Data Engineering & Preparation**
+2. **Model Development & Training**
+3. **Deployment & Serving**
+4. **Monitoring & Maintenance (Data Drift, Tracking & Alerting)**
+5. **Continuous Training (CT) & Automated Retraining**
 
-Each phase has specific steps, tools, and outputs as detailed below.
+---
 
 ## Phase 1: Data Engineering & Preparation
 
@@ -23,7 +24,7 @@ Prepare clean, structured data for model training with proper handling of class 
    - Format: X-ray images organized by KL grade (0-4)
 
 2. **Data Structure**:
-   ```
+   ```text
    data/
    └── kneeKL224/
        ├── train/
@@ -44,20 +45,21 @@ Prepare clean, structured data for model training with proper handling of class 
            ├── 2/
            ├── 3/
            └── 4/
-   
-   *Note: Due to size constraints, only `data/kneeKL224/test` is tracked via DVC. The full dataset should be downloaded separately for training.*
    ```
+   *Note: Due to size constraints, only `data/kneeKL224/test` is tracked via DVC. The full dataset should be downloaded separately for training.*
 
 3. **Data Processing** (`src/data_loader.py`):
-   - Custom `KneeDataset` class loads images and labels
-   - Image transforms: resize, normalization, augmentation (training only)
-   - Stratified sampling to maintain class distribution
-   - WeightedRandomSampler to handle class imbalance
-   - Train/validation split with configurable fraction (default 0.02 for fast testing)
+   - Custom `KneeDataset` class loads images and labels.
+   - Image transforms: Resize to $224 \times 224$, normalization (ImageNet standards), and augmentation (random rotation and horizontal flip for training dataset only).
+   - Stratified sampling to maintain class distribution during subset creation.
+   - `WeightedRandomSampler` to handle class imbalance dynamically.
+   - Train/validation split with configurable fraction (default 0.02 for fast testing, 1.0 for full runs).
 
 ### Output
-- PyTorch DataLoaders for training and validation
-- Class weights for loss function to address imbalance
+- PyTorch DataLoaders for training and validation.
+- Class weights for the CrossEntropyLoss function to address class imbalance.
+
+---
 
 ## Phase 2: Model Development & Training
 
@@ -66,9 +68,9 @@ Develop and train an osteoarthritis classification model using transfer learning
 
 ### Steps
 1. **Model Selection**:
-   - Architecture: EfficientNet-B0 (pretrained on ImageNet)
-   - Feature extraction layers frozen for faster training on CPU
-   - Custom classifier head for 5-class classification (KL grades 0-4)
+   - Architecture: EfficientNet-B0 (pretrained on ImageNet).
+   - Feature extraction layers frozen for faster training on CPU.
+   - Custom classifier head for 5-class classification (KL grades 0-4).
 
 2. **Configuration** (`configs/config.yml`):
    ```yaml
@@ -90,30 +92,23 @@ Develop and train an osteoarthritis classification model using transfer learning
      learning_rate: 0.0001
      device: "auto"  # auto-detects CUDA
      save_name: "best_knee_model.pth"
+     mlflow_exp_name: "Knee_Osteoarthritis_Dev"
    ```
 
 3. **Model Building** (`src/model.py`):
-   - Loads pretrained EfficientNet-B0
-   - Freezes feature layers if configured
-   - Replaces classifier head with dropout and linear layer
+   - Loads pretrained EfficientNet-B0.
+   - Freezes feature layers if configured.
+   - Replaces classifier head with dropout and linear layer.
 
 4. **Training Process** (`src/train.py`):
-   - Loads data via `get_data_loaders()` from data_loader.py
-   - Initializes model, loss function (weighted CrossEntropyLoss), optimizer
-   - Training loop with validation after each epoch
-   - Saves best model based on validation accuracy
-   - Logs metrics to MLflow (automatically tracked)
-   - Generates training/validation curves
+   - Loads data via `get_data_loaders()` from `data_loader.py`.
+   - Initializes model, loss function (weighted CrossEntropyLoss), optimizer.
+   - Training loop with validation after each epoch.
+   - Saves best model based on validation accuracy to `models/best_knee_model.pth`.
+   - Logs metrics and curve plots to MLflow.
+   - Sends training completion summaries to Discord.
 
-5. **MLflow Tracking**:
-   - Automatically logs parameters, metrics, and model artifacts
-   - Experiment name: "Knee_Osteoarthritis_Dev"
-   - Accessible via `mlflow ui` command pointing to `experiments/mlruns/`
-
-### Output
-- Trained model weights saved to `models/best_knee_model.pth`
-- MLflow experiment with run metrics and parameters
-- Training logs showing loss and accuracy curves
+---
 
 ## Phase 3: Deployment & Serving
 
@@ -122,82 +117,55 @@ Deploy the trained model as a REST API with a user-friendly web interface.
 
 ### Steps
 1. **API Development** (`deployment/api/main.py`):
-   - FastAPI application with CORS middleware
-   - Model loading on startup (singleton pattern)
+   - FastAPI application with CORS middleware.
+   - Model loading on startup (singleton pattern).
    - `/predict` endpoint:
-     * Accepts image file upload
-     * Preprocesses image (resize, normalize)
-     * Runs inference to get prediction and confidence
-     * Generates Grad-CAM heatmap for explainability
-     * Returns JSON with prediction, confidence, and base64-encoded heatmap
-   - Health check endpoint (`/`)
+     * Accepts image file upload.
+     * Validates input: rejects non-knee X-rays (variance, gray-scale ratio, Hough lines, MobileNet small validation check).
+     * Preprocesses image (resize, normalize).
+     * Runs inference to get prediction and confidence.
+     * Generates Grad-CAM heatmap for explainability.
+     * Returns JSON with prediction, confidence, and base64-encoded heatmap.
+   - `/feedback` endpoint to process clinician votes and route target files to feedback folders.
+   - Health check endpoint (`/health`).
 
 2. **Docker Containerization** (`deployment/docker/`):
    - Root `Dockerfile`:
-     * Base image: python:3.9-slim
-     * Installs system dependencies and python dependencies
-     * Copies source code
-     * Exposes port 7860 for Hugging Face Spaces
-     * Runs `uvicorn deployment.api.main:app --host 0.0.0.0 --port 7860`
-   - `docker-compose.yml`:
-     * Defines api service
-     * Maps port 7860:7860
-     * Optional volume mounts for development
+     * Base image: `python:3.9-slim`.
+     * Installs system dependencies and python dependencies.
+     * Installs CPU-only PyTorch to speed up builds and reduce image sizes.
+     * Exposes port `7860` for Hugging Face Spaces.
+     * Runs `uvicorn deployment.api.main:app --host 0.0.0.0 --port 7860`.
 
 3. **CI/CD Pipeline** (`.github/workflows/`):
    - `ci.yml`: Automated testing and linting on pull requests.
    - `cd.yml`: Automated Docker image building and pushing to GitHub Container Registry (GHCR).
-   - Pipelines report status directly to Discord via rich, styled cards (Passed/Failed) on the `#ci-cd_alerts` channel.
-   - **Deployment to Hugging Face** is handled manually via a **Dual-Remote Git push** configuration (pushing to both GitHub and Hugging Face simultaneously from the local machine), taking advantage of the root `Dockerfile` and native `7860` port mapping.
+   - Pipelines report status directly to Discord via rich, styled cards on the `#ci-cd_alerts` channel.
+   - Hugging Face Spaces deployment is handled via a dual-remote Git setup (`git push origin main` pushes to both GitHub and HF Spaces).
 
-3. **Web Interface** (`deployment/web_ui/`):
-   - Simple HTML interface with drag-and-drop upload
-   - JavaScript to:
-     * Send image to `/predict` endpoint
-     * Display prediction result and confidence
-     * Show Grad-CAM heatmap overlay
-   - Served by the same FastAPI app at `/` on Hugging Face Spaces, so the browser calls the same-origin `/predict` endpoint
+4. **Web Interface** (`deployment/web_ui/`):
+   - Simple HTML/CSS/JS interface with drag-and-drop upload.
+   - JavaScript sends images to `/predict` and renders the Grad-CAM heatmap overlay.
+   - Feedback controls (thumbs up/down + grade selector dropdown) allow clinicians to correct predictions and submit corrections.
+
+5. **Dynamic Model Downloading on Startup**:
+   - To keep the Git repository lightweight while avoiding local DVC cache limitations on remote build servers, the API implements a dynamic model fetching system on startup:
+     * On launch, the app checks if `models/best_knee_model.pth` exists locally on the disk.
+     * If the model file is missing, it attempts to download the weights from remote sources in the following priority order:
+       1. **Public Download URL (`MODEL_DOWNLOAD_URL`)**: Downloads the binary file directly from a specified URL secret (e.g., DagsHub raw file link, OneDrive, or GitHub Release).
+       2. **MLflow Remote Server**: Connects to the MLflow Remote Tracking Server (DagsHub/Hugging Face) using credentials (`MLFLOW_TRACKING_URI`, `MLFLOW_TRACKING_USERNAME`, `MLFLOW_TRACKING_PASSWORD`), queries all registered runs under `Knee_Osteoarthritis_Dev` sorted by `val_acc` descending, identifies the best run containing the model artifact, and downloads the `best_knee_model.pth` file.
+     * The downloaded model is cached locally on the container filesystem for subsequent runs, ensuring zero downtime and fully automated server bootstrapping.
 
 ### Output
-- Production Space page at https://huggingface.co/spaces/bindeptrai/OA-PREDICTON-MLOps
-- Interactive Web UI served by FastAPI at the Space app root
-- API documentation available at `/docs` on the Space app URL
+- Production Space page at https://huggingface.co/spaces/bindeptrai/OA-PREDICTON-MLOps.
+- Interactive Web UI served by FastAPI at the Space app root.
+- API documentation available at `/docs` on the Space app URL.
+
+---
 
 ## Phase 4: Monitoring & Maintenance
 
 ### Objective
-Ensure model performance remains stable over time and detect issues early.
-
-### Planned Implementation (Future Work)
-
-1. **Data Drift Detection**:
-   - Monitor input data distribution vs. training data
-   - Use statistical tests (KS-test, PSI) or ML-based detectors
-   - Alert when significant drift detected
-
-2. **Performance Monitoring**:
-   - Track prediction confidence distribution
-   - Monitor for sudden drops in confidence (possible model degradation)
-   - Log prediction latency and throughput
-
-3. **Logging & Alerting**:
-   - Structured logging (JSON format) for all API requests
-   - Centralized logging solution (ELK stack or similar)
-   - Alerts for error rates, latency spikes, or system issues
-
-4. **Explainability Monitoring**:
-   - Validate that heatmaps focus on clinically relevant regions
-   - Detect when model attends to artifacts or irrelevant features
-
-5. **Automated Retraining Pipeline**:
-   - Trigger retraining when data drift exceeds threshold
-   - Versioned model registry (MLflow Model Registry)
-   - A/B testing framework for comparing model versions
-   - Automated deployment pipeline (CI/CD)
-
-6. **Guardrails & Input Validation**:
-   - Validate input file type, size, and dimensions
-   - Reject inappropriate requests (non-medical images)
 Ensure model performance and data health remain stable over time, detect drift issues early, and alert engineering teams of production anomalies.
 
 ### 1. Data Version Control (DVC)
@@ -205,10 +173,7 @@ Ensure model performance and data health remain stable over time, detect drift i
 * **Mechanism**:
   - Pointers (e.g., `data/kneeKL224/test.dvc`, `models/best_knee_model.pth.dvc`) contain the hash of the actual files and are tracked by Git.
   - The actual data is stored in the remote cache directory (`dvc_remote/` in this project, which can be linked to AWS S3, Google Cloud Storage, or DagsHub storage).
-  - Developers retrieve the dataset and weights using:
-    ```bash
-    dvc pull
-    ```
+  - Developers retrieve the dataset and weights using `dvc pull`.
   - This ensures git checkouts remain instantaneous and lightweight, while still maintaining complete reproducibility of data versions and model weights.
 
 ### 2. Data Drift & Datashift Detection (Evidently AI)

@@ -56,8 +56,10 @@ We have containerized the application to ensure consistency across environments.
     - **Offline IP Geolocation**: The API uses a localized cache of Vietnam CIDR blocks with binary search (`bisect`) to strictly limit access to Vietnamese IP addresses in `< 0.1ms` without network latency.
     - **Endpoint Rate Limiting**: Uses `slowapi` to enforce strict in-memory rate limiting per IP (`10 req/min` for predictions, `60 req/min` for health checks) preventing abuse and out-of-memory errors.
 - **Data Versioning (DVC)**: Implemented **DVC** to track large files (`data/kneeKL224/test/` and `models/best_knee_model.pth`), keeping the Git repository lightweight and enabling reproducible models.
+- **Data Drift Monitoring (Evidently AI)**: Integrated data drift detection tracking brightness, contrast, sharpness, and image dimensions. Triggers alerts to Discord and kicks off automated retraining if data drift exceeds the defined threshold.
+- **Continuous Training (CT) / Retraining Pipeline**: Built an incremental fine-tuning loop (`src/retrain.py`) that merges clinician feedback with baseline datasets, logs model performance to the `Knee_Osteoarthritis_Retrain` experiment in MLflow, and automatically updates the production weights.
+- **Dynamic Startup Model Bootstrapping**: Solved HF Space startup errors due to Git-untracked model binaries by implementing automatic download on startup from a public URL or by fetching the best run from DagsHub's remote MLflow tracking server.
 - **Future Steps**:
-    - **Data Drift Detection**: Implement data drift monitoring using tools like Evidently AI to detect when production data distribution changes compared to training data.
     - **Cloud Deployment**: Deploy the Docker containers to a cloud server (AWS EC2 / GCP) so the app can be accessed globally.
     - **Advanced Monitoring**: Integrate Prometheus/Grafana to monitor system metrics.
     - **Persistent Feedback Storage**: Migrate the local ephemeral `data/feedback/` directory to a Persistent Storage solution (e.g., Hugging Face Persistent Storage, AWS S3, or Google Drive API). This guarantees that valuable user/clinician feedback is securely preserved across container restarts and can be automatically aggregated for future model retraining loops.

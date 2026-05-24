@@ -33,10 +33,12 @@ This document provides an overview of the purpose and functionality of each file
   - **data_loader.py**: Defines the dataset class and functions for loading and preparing data.
   - **model.py**: Contains functions to build and configure the model architecture.
   - **train.py**: Script to train the model.
+  - **retrain.py**: Script to incrementally retrain/fine-tune the model using feedback data.
   - **utils.py**: Utility functions, including Grad-CAM for heatmap generation.
 - **tests/**: Unit and integration tests.
-- **monitoring/**: For setting up monitoring, logging, and alerting (to be implemented).
-- **reports/**: For storing evaluation results, metrics, and visualizations (to be implemented).
+- **monitoring/**: Contains monitoring and continuous training trigger components.
+  - **drift_detection.py**: Runs Evidently AI data drift check on statistical image features (brightness, contrast, sharpness, shape) using clinician feedback vs validation datasets.
+  - **reports/**: Contains generated Evidently AI drift reports (`drift_report.html` and `drift_report.json`).
 - **dvc_remote/**: Local remote storage directory for DVC. Contains the actual large files tracked by DVC (ignored by Git).
 - **.dvc/**: Configuration folder for DVC.
 
