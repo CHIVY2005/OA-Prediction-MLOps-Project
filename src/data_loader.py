@@ -6,7 +6,7 @@ from torchvision import transforms
 from PIL import Image
 from collections import Counter
 from sklearn.model_selection import train_test_split
-from .config_loader import CFG  # Import Config mới
+from .config_loader import CFG  # Nạp cấu hình từ Config
 
 class KneeDataset(Dataset):
     def __init__(self, root_dir, split='train', transform=None):
@@ -15,7 +15,7 @@ class KneeDataset(Dataset):
         self.images = []
         self.labels = []
         
-        # Dùng tên class từ Config
+        # Sử dụng tên lớp từ Config
         self.classes = CFG['data']['class_names']
         
         if not os.path.exists(self.root_dir):
@@ -63,11 +63,11 @@ def get_data_loaders():
     fraction = CFG['data']['fraction']
     batch_size = CFG['train']['batch_size']
     
-    # 1. Load Data
+    # 1. Tải Dữ liệu
     full_train_ds = KneeDataset(data_path, 'train', transforms_dict['train'])
     full_val_ds = KneeDataset(data_path, 'val', transforms_dict['val'])
     
-    # 2. Xử lý Subset (Chạy nhanh)
+    # 2. Xử lý Tập con Subset (Để chạy thử nhanh)
     if fraction < 1.0:
         def create_stratified_subset(dataset):
             if len(dataset) == 0: return dataset
@@ -79,7 +79,7 @@ def get_data_loaders():
                 )
                 return Subset(dataset, subset_indices)
             except ValueError:
-                # Fallback nếu dữ liệu quá ít không stratify được
+                # Fallback nếu dữ liệu quá ít không phân tầng được
                 return Subset(dataset, indices[:int(len(dataset)*fraction)])
             
         train_ds = create_stratified_subset(full_train_ds)
@@ -88,7 +88,7 @@ def get_data_loaders():
     else:
         train_ds, val_ds = full_train_ds, full_val_ds
 
-    # 3. Xử lý Imbalance Sampler
+    # 3. Xử lý Phân bổ mẫu tránh mất cân bằng lớp (Imbalance Sampler)
     # Lấy nhãn chuẩn từ subset
     if isinstance(train_ds, Subset):
         labels = [train_ds.dataset.labels[i] for i in train_ds.indices]
@@ -103,7 +103,7 @@ def get_data_loaders():
     sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
     loss_weights = torch.tensor(class_weights, dtype=torch.float)
 
-    # 4. DataLoader
+    # 4. Tạo DataLoader
     train_loader = DataLoader(train_ds, batch_size=batch_size, sampler=sampler, num_workers=0)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=0)
     

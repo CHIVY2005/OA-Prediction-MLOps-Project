@@ -198,69 +198,118 @@ Ensure model performance remains stable over time and detect issues early.
 6. **Guardrails & Input Validation**:
    - Validate input file type, size, and dimensions
    - Reject inappropriate requests (non-medical images)
-   - Rate limiting to prevent abuse
-   - Confidence thresholding for low-confidence predictions
+Ensure model performance and data health remain stable over time, detect drift issues early, and alert engineering teams of production anomalies.
 
-7. **Persistent Feedback Storage**:
-   - Migrate local ephemeral feedback data to a persistent data store (e.g., AWS S3, Hugging Face Persistent Storage, Google Drive).
-   - Ensure feedback images and doctor corrections are securely archived and easily accessible for future model retraining cycles without risk of loss during container restarts.
+### 1. Data Version Control (DVC)
+* **Purpose**: Machine learning models and datasets are heavy and binary, making them unsuitable for Git tracking (which bloats repo size and degrades performance). DVC separates code tracking (handled by Git) from data tracking.
+* **Mechanism**:
+  - Pointers (e.g., `data/kneeKL224/test.dvc`, `models/best_knee_model.pth.dvc`) contain the hash of the actual files and are tracked by Git.
+  - The actual data is stored in the remote cache directory (`dvc_remote/` in this project, which can be linked to AWS S3, Google Cloud Storage, or DagsHub storage).
+  - Developers retrieve the dataset and weights using:
+    ```bash
+    dvc pull
+    ```
+  - This ensures git checkouts remain instantaneous and lightweight, while still maintaining complete reproducibility of data versions and model weights.
 
-### Current Monitoring Capabilities
-- **Discord Webhook System**:
-  * **🚨 Red Alert (#api-alerts)**: Triggers on API 500 errors, rate limit abuse (429), file sizes exceeding 5MB, or model startup failures. Acts as the "emergency room" for the project.
-  * **📊 Gold Tier (#ai-predictions)**: Sends successful predictions (Status 200) including the uploaded image, predicted class, confidence percentage, and processing time. Enables real-time visual monitoring for anomalies and data drift.
-- **CI/CD Notifications**: Automated alerts for GitHub Actions pipeline statuses.
-- **Feedback Loop**:
-  * Active UI controls (Thumbs up/down, Grade selector dropdown) collect real-world validation data from users and clinicians.
-  * Correctly predicted images are archived in `data/feedback/correct/{prediction}/`.
-  * Incorrectly predicted images are saved under `data/feedback/incorrect/grade_{corrected_grade}/` using the clinician's overriding grade.
-  * This collected dataset serves as a valuable resource for identifying model weak spots and powering future automated retraining loops.
-- Basic error handling in API (returns prediction even if heatmap fails)
-- Startup logging shows model loading status
-- MLflow tracks training experiments
-- Docker provides isolation and reproducibility
+### 2. Data Drift & Datashift Detection (Evidently AI)
+* **Concept**: Data Drift (or Datashift) occurs when the statistical properties of production input data diverge from the training data over time. In medical imaging, this could be caused by new X-ray machines with different exposure settings, new patient demographics, or variation in image resolutions.
+* **Feature Extraction**:
+  Because statistical tests cannot be run directly on high-dimensional raw pixel arrays, `monitoring/drift_detection.py` extracts lower-dimensional metadata and statistical image features:
+  - **Brightness**: The mean pixel intensity of the grayscale image. Represents exposure and lighting variations.
+  - **Contrast**: The standard deviation of pixel intensities. Captures the dynamic range of the scans.
+  - **Sharpness**: Calculated using the variance of the Laplacian filter after resizing the image to a standardized $224 \times 224$ scale. Standardizing ensures image resolution does not artificially bias sharpness statistics.
+  - **Shape Metrics**: Image height, width, and aspect ratio to detect resolution drift or aspect ratio distortions.
+* **Statistical Drift Metrics**:
+  - Evidently AI compares the **Reference Dataset** (`data/kneeKL224/val`) with the **Current Dataset** (clinician feedback images in `data/feedback/`).
+  - It runs non-parametric statistical tests (like the Kolmogorov-Smirnov test for numerical features) on each image property.
+  - If the $p$-value falls below a threshold (default $0.05$), the feature is flagged as drifted.
+  - If the proportion of drifted features exceeds the configured `threshold` (default $33\%$, or $0.33$), the system flags the entire dataset as drifted (`dataset_drift = True`).
+* **Outputs**:
+  - HTML Dashboard: `monitoring/reports/drift_report.html` (interactive visualizations of feature distributions).
+  - JSON Data: `monitoring/reports/drift_report.json` (raw metrics for automated parsing).
 
-### Output (When Implemented)
-- Advanced monitoring dashboard showing data/model health metrics
-- Automated retraining pipeline triggered when confidence scores drop
-- Retraining pipeline logs and version history
-- Audit trail of all predictions for compliance
+### 3. MLflow Experiment Tracking
+* **Purpose**: Centralized tracking for experiments to compare parameters, hyperparameter runs, loss curves, and model weights.
+* **Features**:
+  - Supports **Local Tracking** (stored in `experiments/mlruns/`) and **Remote Tracking** (via `MLFLOW_TRACKING_URI` pointing to platforms like DagsHub or Hugging Face).
+  - Logs hyperparameter choices (learning rate, freeze settings, epochs) and training metrics (loss, accuracy) per epoch.
+  - Stores model weight binaries (`best_knee_model.pth`) and training curve visual plots as artifacts inside the run.
+  - Keeps training history completely auditable and models deployable directly from registry paths.
 
-## Complete End-to-End Example
+### 4. Discord Alerting Engine
+A two-tier Discord notification webhook system acts as the real-time command center:
+* **🚨 Red Alerts (#api-alerts)**: Sends instant embed alerts on critical infrastructure events:
+  - FastAPI 500 errors (unhandled exceptions).
+  - Model startup loading failures.
+  - Rate limiting (429 status code) or file upload size abuse (>5MB).
+  - Dataset Drift alarms triggered by Evidently AI.
+* **📊 Gold Tier (#ai-predictions)**: Logs successful predictions (Status 200) with the uploaded X-ray image, predicted KL Grade, confidence score, and processing latency. Allows clinicians and engineers to monitor live prediction distributions visually.
+
+---
+
+## Phase 5: Continuous Training (CT) & Automated Retraining
+
+### Objective
+Close the MLOps loop by automatically adapting the model to new production patterns and clinician corrections without manual developer intervention.
+
+```mermaid
+graph TD
+    A[Clinician Web UI] -->|Thumbs Up/Down + Grade Correction| B[FastAPI /feedback endpoint]
+    B -->|Categorize & Save Images| C[(data/feedback/)]
+    D[Evidently Monitor] -->|Scheduled Drift Run| C
+    D -->|Compare with data/kneeKL224/val| E{Drift Detected?}
+    E -->|No| F[Keep Serving]
+    E -->|Yes - dataset_drift=True| G[Trigger Automated Retraining]
+    G -->|Import src.retrain| H[retrain.py Engine]
+    H -->|Load feedback/ + train/ datasets| I[Combined Dataset]
+    H -->|Load current models/best_knee_model.pth| J[Incremental Fine-Tuning]
+    J -->|Log to MLflow Knee_Osteoarthritis_Retrain| K[Save Updated best_knee_model.pth]
+    K -->|Send Alert Card| L[Discord Notification]
+```
+
+### Steps
+1. **Clinician Feedback Collection**:
+   - The user or clinician flags incorrect predictions in the Web UI, specifying the correct grade (0-4).
+   - The FastAPI `/feedback` endpoint routes correct predictions to `data/feedback/correct/{predicted_grade}/` and incorrect predictions to `data/feedback/incorrect/grade_{corrected_grade}/`.
+
+2. **Automated Drift-Retrain Trigger**:
+   - During scheduled monitoring checks, `monitoring/drift_detection.py` processes the feedback folders.
+   - If statistical drift is detected, the script triggers the retraining pipeline in `src/retrain.py`.
+
+3. **Incremental Fine-Tuning Pipeline**:
+   - **Combined Dataset**: The pipeline dynamically creates a `FeedbackDataset` and merges it with the baseline training set (`ConcatDataset`), maintaining class balance via a `WeightedRandomSampler` calculated across the combined dataset.
+   - **Fine-Tuning**: It loads the existing weights from `models/best_knee_model.pth` and applies a lower learning rate ($5.0 \times 10^{-5}$) to incrementally adapt the model weights.
+   - **Validation**: The model is validated against the untouched validation dataset loader to ensure it maintains generalizeability.
+   - **Artifact & Weight Updates**: The new best weights are overwritten back to `models/best_knee_model.pth`, and parameters are logged under the `Knee_Osteoarthritis_Retrain` experiment in MLflow.
+   - **Discord Notification**: An automated embed is sent to Discord detailing the retraining status, the number of feedback images used, and final accuracy.
+
+---
+
+## Complete End-to-End MLOps Example
 
 1. **Data Preparation**:
-   - Dataset organized in `data/kneeKL224/` with train/val/test splits
-   - DataLoader applies transforms and handles class imbalance
+   - Pull test dataset and model using DVC: `dvc pull`
+   - Setup project: `pip install -r requirements.txt`
 
 2. **Model Training**:
-   - Run `python -m src.train` 
-   - Model trains for 1 epoch on 2% data (fast mode)
-   - Best model saved to `models/best_knee_model.pth`
-   - Metrics logged to MLflow
+   - Run `python -m src.train` (tracks metrics in MLflow and alerts Discord upon completion).
 
-3. **Deployment**:
-   - Initialize environment: `pip install -r requirements.txt`
-   - Fetch DVC data: `dvc pull`
-   - Build Docker image: `docker compose -f deployment/docker/docker-compose.yml build`
-   - Start services: `docker compose -f deployment/docker/docker-compose.yml up`
-   - Local API/Web UI available at http://localhost:7860
-   - Production API/Web UI available through Hugging Face Spaces
+3. **Serving & Feedback**:
+   - Start container: `docker compose -f deployment/docker/docker-compose.yml up --build`
+   - Upload knee X-ray via UI at http://localhost:7860.
+   - Click "Sai" (Incorrect) on Web UI, choose corrected grade "3", and click Submit.
+   - File is archived in `data/feedback/incorrect/grade_3/`.
 
-4. **Usage**:
-   - User opens the Hugging Face Space and uploads a knee X-ray via Web UI
-   - API processes image and returns:
-     * Prediction: KL grade (0-4)
-     * Confidence: percentage score
-     * Heatmap: visual explanation highlighting relevant regions
-   - Results displayed in web interface
-   - Successful predictions are sent to Discord through `ai_prediction_webhook` with the image/heatmap, class, confidence, and latency
+4. **Drift & Retraining Simulation**:
+   - Run monitoring command with feedback generation and a sensitive drift threshold:
+     ```bash
+     python -m monitoring.drift_detection --generate-feedback --threshold 0.1
+     ```
+   - Evidently detects statistical brightness shift.
+   - Automatically kicks off `src/retrain.py`.
+   - Fine-tunes model on combined dataset (baseline + feedback images), updates `models/best_knee_model.pth`, logs to MLflow, and reports success to Discord!
 
-5. **Maintenance** (Future):
-   - Monitoring detects data drift from new hospital data
-   - Retraining pipeline triggered automatically
-   - New model version registered in MLflow
-   - Canary deployment compares new vs old model
-   - Promotion to production if performance improved
+This provides a fully closed-loop, automated MLOps pipeline.
 
 ## Configuration Points
 

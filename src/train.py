@@ -18,39 +18,46 @@ def train():
     epochs = CFG['train']['epochs']
     lr = CFG['train']['learning_rate']
     
-    # 1. Prepare Data & Model
+    # 1. Chuẩn bị Dữ liệu & Mô hình
     print(f"[...] Bat dau qua trinh huan luyen tren: {device}")
     train_loader, val_loader, loss_weights = get_data_loaders()
     loss_weights = loss_weights.to(device)
     
     model = build_model()
     
-    # 2. Setup Loss & Optimizer
+    # 2. Thiết lập Loss & Optimizer (Hàm mất mát và Bộ tối ưu)
     criterion = nn.CrossEntropyLoss(weight=loss_weights, label_smoothing=0.1)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-2)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.1, patience=3
     )
 
-    # 3. Setup MLflow (Fixed path to experiments/mlruns)
-    mlflow.set_tracking_uri("file:experiments/mlruns")
+    # 3. Thiết lập MLflow (Hỗ trợ Tracking từ xa hoặc tự động chuyển về local)
+    mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
+    if mlflow_uri:
+        print(f"[MLflow] Su dung Remote Tracking URI: {mlflow_uri}")
+        mlflow.set_tracking_uri(mlflow_uri)
+    else:
+        mlflow.set_tracking_uri("file:experiments/mlruns")
+        print("[MLflow] Su dung Local Tracking: experiments/mlruns")
+
     mlflow.set_experiment(CFG['train']['mlflow_exp_name'])
 
     print(f"[...] Training {epochs} epochs...")
     
     with mlflow.start_run():
-        # Log toàn bộ config lên MLflow để sau này đối chiếu
+        # Log toàn bộ cấu hình lên MLflow để đối chiếu sau này
         mlflow.log_params(CFG['train'])
         mlflow.log_params(CFG['data'])
         mlflow.log_param("model_name", CFG['model']['name'])
 
         best_acc = 0.0
         
-        # Để vẽ biểu đồ
+        # Lưu lịch sử loss/acc để vẽ biểu đồ
         history = {"train_loss": [], "val_loss": [], "val_acc": []}
         
         for epoch in range(epochs):
-            # --- TRAIN ---
+            # --- PHA HUẤN LUYỆN (TRAIN) ---
             model.train()
             train_loss = 0.0
             for imgs, labels in train_loader:
@@ -62,7 +69,7 @@ def train():
                 optimizer.step()
                 train_loss += loss.item() * imgs.size(0)
 
-            # --- VAL ---
+            # --- PHA ĐÁNH GIÁ (VALIDATION) ---
             model.eval()
             val_loss = 0.0
             all_preds, all_labels = [], []
@@ -75,16 +82,16 @@ def train():
                     all_preds.extend(outputs.argmax(1).cpu().numpy())
                     all_labels.extend(labels.cpu().numpy())
 
-            # Metrics
+            # Tính toán các chỉ số (Metrics)
             avg_train_loss = train_loss / len(train_loader.dataset)
             avg_val_loss = val_loss / len(val_loader.dataset)
             val_acc = np.mean(np.array(all_preds) == np.array(all_labels))
 
-            # Scheduler Step
+            # Cập nhật learning rate qua scheduler
             scheduler.step(avg_val_loss)
             current_lr = optimizer.param_groups[0]['lr']
             
-            # Print & Log
+            # In thông tin và log metric lên MLflow
             print(f"Epoch {epoch+1}/{epochs} | Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f} | Acc: {val_acc:.4f} | LR: {current_lr:.1e}")
             
             mlflow.log_metrics({
@@ -94,12 +101,12 @@ def train():
                 "learning_rate": current_lr
             }, step=epoch)
             
-            # Lưu lịch sử để vẽ
+            # Ghi nhận lịch sử để vẽ đồ thị
             history["train_loss"].append(avg_train_loss)
             history["val_loss"].append(avg_val_loss)
             history["val_acc"].append(val_acc)
 
-            # Save Best Model
+            # Lưu model tốt nhất nếu đạt accuracy cao hơn
             if val_acc > best_acc:
                 best_acc = val_acc
                 save_name = CFG['train']['save_name']
@@ -131,7 +138,7 @@ def train():
             mlflow.log_artifact(curve_path)
             print(f"[OK] Da luu va log bieu do vao: {curve_path}")
 
-        # 5. Bắn kết quả lên Discord (Dùng kênh Gold Tier - ai_prediction_webhook để track kết quả train)
+        # 5. Gửi thông báo kết quả lên Discord (Dùng kênh Gold Tier - ai_prediction_webhook để theo dõi)
         webhook_url = os.getenv("ai_prediction_webhook")
         if webhook_url:
             try:
@@ -141,7 +148,7 @@ def train():
                 
                 embed = {
                     "title": "✅ [MLOps] Huấn luyện Model hoàn tất!",
-                    "color": 3066993, # Màu xanh lá
+                    "color": 3066993, # Màu xanh lá cây
                     "fields": [
                         {"name": "Số Epochs", "value": f"`{epochs}`", "inline": True},
                         {"name": "Train Loss", "value": f"`{final_train_loss:.4f}`", "inline": True},

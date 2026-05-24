@@ -8,15 +8,22 @@
 ### 5-24-2026
 
 1. Add:
+- **Automated Retraining Pipeline** (`src/retrain.py`): Gathers clinician feedback images (correct/incorrect), combines them with original training data using `ConcatDataset`, fine-tunes the existing `best_knee_model.pth` weights to preserve prior knowledge, logs metrics/hyperparameters under MLflow experiment `Knee_Osteoarthritis_Retrain`, and alerts Discord about training outcomes.
+- **Drift-to-Retrain Trigger**: Modified `monitoring/drift_detection.py` to auto-trigger the retraining pipeline dynamically when dataset drift is detected. Added `--no-retrain` to allow checking drift without running the training.
 - **Feedback Loop UI**: Interactive thumbs-up ("Đúng") and thumbs-down ("Sai") buttons added to the web interface to collect predictions validation.
 - **Dropdown Overriding**: If "Sai" is selected, a dropdown menu is shown allowing users/doctors to specify the actual correct KL Grade (0-4).
 - **Backend feedback endpoint**: `/feedback` POST endpoint to process user votes and store/route target files.
 - **API Cache**: FastAPI caches incoming X-ray images temporarily as `data/feedback/temp/{request_id}.jpg` on `/predict` and routes them on `/feedback` submission.
 - **Testing**: Dedicated unit tests in `tests/test_api.py` covering `/feedback` 404 validation and file routing to correct/incorrect grade folders.
+- **MLflow Remote Server Setup**: Integrated support for logging training parameters, metrics, and best model checkpoints remotely to DagsHub or Hugging Face using environment variables, while maintaining local fallback functionality.
+- **Evidently AI Data Drift Script** (`monitoring/drift_detection.py`): Periodically checks for data drift on production feedback images compared to reference validation datasets. Analyzes brightness, contrast, sharpness (Laplacian variance), and image shape.
+- **Local Data Feedback Simulation**: Supports generating clinician feedback examples on-demand by copying local dataset images to the feedback folder with optional brightness shifts to demonstrate data drift.
+- **Comprehensive Documentation Updates**: Updated `workflow.md` to introduce Phase 5 (Continuous Training & Automated Retraining) and fully detail Data Version Control (DVC), Data Drift/Datashift (Evidently AI), MLflow, and Discord webhook configurations.
 
 2. Adjustments:
 - Updated frontend JS (`app.js`) to capture unique prediction request IDs and prediction grades, handle yes/no toggles, manage state resets, and submit structured feedback requests.
 - Added custom responsive styling rules in `style.css` for feedback buttons, dropdown selectors, hover effects, and thank-you messages.
+- Updated `requirements.txt` to include `evidently`.
 
 ### 5-23-2026
 

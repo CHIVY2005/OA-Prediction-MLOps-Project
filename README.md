@@ -80,7 +80,36 @@ To train a quick verification model:
 .\.venv\Scripts\python.exe -m src.train
 ```
 
-The best checkpoint is saved to `models/best_knee_model.pth`.
+The best checkpoint is saved to `models/best_knee_model.pth` and logged to MLflow.
+
+## Monitoring & Data Drift Detection
+
+To check for statistical data drift (based on brightness, contrast, sharpness, and shape metrics of knee X-rays):
+
+1. Generate simulated clinician feedback images with drift and run the analysis:
+   ```bash
+   .\.venv\Scripts\python.exe -m monitoring.drift_detection --generate-feedback --threshold 0.1
+   ```
+2. Run drift check using only existing real feedback images on disk:
+   ```bash
+   .\.venv\Scripts\python.exe -m monitoring.drift_detection
+   ```
+3. View the generated reports at:
+   - HTML Report: `monitoring/reports/drift_report.html`
+   - JSON Data: `monitoring/reports/drift_report.json`
+
+## Automated & Manual Retraining
+
+If data drift is detected (where the proportion of drifted features exceeds the `--threshold`), retraining is automatically triggered unless `--no-retrain` is passed to the drift detection script.
+
+1. **Manual Retraining**: To trigger retraining manually using collected feedback data:
+   ```bash
+   .\.venv\Scripts\python.exe -m src.retrain
+   ```
+2. **MLflow Tracking**: Access the MLflow dashboard locally to view experiment details:
+   ```bash
+   .\.venv\Scripts\mlflow.exe ui --backend-store-uri experiments/mlruns
+   ```
 
 ## Deployment And Push
 
