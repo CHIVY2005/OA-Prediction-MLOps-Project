@@ -83,6 +83,35 @@
                     <h2 id="pred-conf" class="conf-text">--%</h2>
                 </div>
             </div>
+
+            <!-- Feedback Section -->
+            <div class="feedback-container" id="feedback-container">
+                <p>Chẩn đoán này có chính xác không?</p>
+                <div class="feedback-buttons">
+                    <button class="feedback-btn btn-yes" id="btn-feedback-yes">
+                        <i data-lucide="thumbs-up"></i> Đúng
+                    </button>
+                    <button class="feedback-btn btn-no" id="btn-feedback-no">
+                        <i data-lucide="thumbs-down"></i> Sai
+                    </button>
+                </div>
+                
+                <div class="corrected-selection hidden" id="corrected-selection">
+                    <label for="correct-grade-select">Mức độ thoái hóa đúng thực tế là:</label>
+                    <div class="select-wrapper">
+                        <select id="correct-grade-select">
+                            <option value="0">Grade 0 (Bình thường)</option>
+                            <option value="1">Grade 1 (Nghi ngờ)</option>
+                            <option value="2">Grade 2 (Nhẹ)</option>
+                            <option value="3">Grade 3 (Trung bình)</option>
+                            <option value="4">Grade 4 (Nặng)</option>
+                        </select>
+                    </div>
+                    <button class="submit-feedback-btn" id="btn-submit-feedback">Gửi phản hồi</button>
+                </div>
+                
+                <p class="thank-you-msg hidden" id="thank-you-msg">✨ Cảm ơn bạn đã đóng góp phản hồi!</p>
+            </div>
         </section>
     </main>
 

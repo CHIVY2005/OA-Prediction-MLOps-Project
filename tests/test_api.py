@@ -127,3 +127,76 @@ def test_predict_rejects_invalid_knee_xray(client, monkeypatch):
 
     assert response.status_code == 400
     assert "Ảnh tải lên không phải là ảnh chụp X-quang khớp gối" in response.json()["detail"]
+
+
+def test_feedback_returns_404_when_no_temp_image(client):
+    response = client.post(
+        "/feedback",
+        json={
+            "request_id": "non-existent-uuid",
+            "feedback": "correct",
+            "prediction": "2"
+        }
+    )
+    assert response.status_code == 404
+    assert "Không tìm thấy dữ liệu yêu cầu" in response.json()["detail"]
+
+
+def test_feedback_succeeds_for_correct_prediction(client, monkeypatch, tmp_path):
+    temp_dir = tmp_path / "feedback"
+    temp_temp_dir = temp_dir / "temp"
+    temp_temp_dir.mkdir(parents=True, exist_ok=True)
+    
+    monkeypatch.setattr(api, "FEEDBACK_DIR", str(temp_dir))
+    monkeypatch.setattr(api, "TEMP_FEEDBACK_DIR", str(temp_temp_dir))
+    
+    request_id = "test-uuid-123"
+    dummy_img = temp_temp_dir / f"{request_id}.jpg"
+    dummy_img.write_bytes(b"dummy image data")
+    
+    response = client.post(
+        "/feedback",
+        json={
+            "request_id": request_id,
+            "feedback": "correct",
+            "prediction": "2"
+        }
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    
+    expected_path = temp_dir / "correct" / "2" / f"{request_id}.jpg"
+    assert expected_path.exists()
+    assert expected_path.read_bytes() == b"dummy image data"
+    assert not dummy_img.exists()
+
+
+def test_feedback_succeeds_for_incorrect_prediction(client, monkeypatch, tmp_path):
+    temp_dir = tmp_path / "feedback"
+    temp_temp_dir = temp_dir / "temp"
+    temp_temp_dir.mkdir(parents=True, exist_ok=True)
+    
+    monkeypatch.setattr(api, "FEEDBACK_DIR", str(temp_dir))
+    monkeypatch.setattr(api, "TEMP_FEEDBACK_DIR", str(temp_temp_dir))
+    
+    request_id = "test-uuid-456"
+    dummy_img = temp_temp_dir / f"{request_id}.jpg"
+    dummy_img.write_bytes(b"dummy image data")
+    
+    response = client.post(
+        "/feedback",
+        json={
+            "request_id": request_id,
+            "feedback": "incorrect",
+            "prediction": "2",
+            "corrected_grade": "3"
+        }
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    
+    expected_path = temp_dir / "incorrect" / "grade_3" / f"{request_id}.jpg"
+    assert expected_path.exists()
+    assert expected_path.read_bytes() == b"dummy image data"
+    assert not dummy_img.exists()
+

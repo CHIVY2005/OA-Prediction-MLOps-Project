@@ -283,9 +283,149 @@ header h1 {
     margin-top: 0.5rem;
 }
 
-/* Utilities */
-.hidden {
-    display: none !important;
+/* Feedback Section */
+.feedback-container {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 2rem;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    margin-top: 1rem;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.feedback-container p {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 1.25rem;
+}
+
+.feedback-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.feedback-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.75rem;
+    border-radius: 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border-color);
+    background: white;
+    color: var(--text-muted);
+}
+
+.feedback-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.feedback-btn.btn-yes:hover,
+.feedback-btn.btn-yes.active {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+    border-color: var(--success);
+}
+
+.feedback-btn.btn-no:hover,
+.feedback-btn.btn-no.active {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+/* Corrected Selection */
+.corrected-selection {
+    max-width: 400px;
+    margin: 1.5rem auto 0;
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--border-color);
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.corrected-selection label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.corrected-selection select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.corrected-selection select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+/* Add custom arrow to select wrapper */
+.select-wrapper::after {
+    content: "▼";
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.submit-feedback-btn {
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: var(--radius-md);
+    border: none;
+    background: var(--primary-gradient);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.submit-feedback-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.submit-feedback-btn:active {
+    transform: translateY(0);
+}
+
+/* Thank You Message */
+.thank-you-msg {
+    margin-top: 1rem !important;
+    color: var(--success) !important;
+    font-size: 1.1rem;
+    font-weight: 700 !important;
 }
 
 /* Responsive */

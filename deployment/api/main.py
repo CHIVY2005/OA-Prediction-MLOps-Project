@@ -24,6 +24,16 @@ sys.path.append(root_dir)
 
 load_dotenv(os.path.join(root_dir, ".env"))
 
+import uuid
+import shutil
+from pydantic import BaseModel
+from typing import Optional
+
+# Cấu hình thư mục lưu trữ feedback
+FEEDBACK_DIR = os.path.join(root_dir, "data", "feedback")
+TEMP_FEEDBACK_DIR = os.path.join(FEEDBACK_DIR, "temp")
+os.makedirs(TEMP_FEEDBACK_DIR, exist_ok=True)
+
 from src.config_loader import CFG
 from src.model import build_model
 from src.data_loader import get_transforms
@@ -619,13 +629,54 @@ async def predict(request: Request, background_tasks: BackgroundTasks, file: Upl
     #     process_time=process_time
     # )
     
+    # Sinh mã request_id duy nhất và lưu tạm ảnh để phục vụ feedback
+    request_id = str(uuid.uuid4())
+    try:
+        temp_img_path = os.path.join(TEMP_FEEDBACK_DIR, f"{request_id}.jpg")
+        image.save(temp_img_path, "JPEG")
+    except Exception as e:
+        logger.error(f"Failed to save temp image for feedback: {e}")
+    
     return {
         "status": "success",
+        "request_id": request_id,
         "filename": file.filename,
         "prediction": class_name,
         "confidence": f"{confidence * 100:.1f}%",
         "heatmap_base64": heatmap_base64
     }
+
+class FeedbackModel(BaseModel):
+    request_id: str
+    feedback: str  # "correct" hoặc "incorrect"
+    prediction: str # Nhãn mô hình dự đoán (ví dụ: "0")
+    corrected_grade: Optional[str] = None  # Nhãn đúng thực tế (ví dụ: "2")
+
+@app.post("/feedback")
+async def collect_feedback(data: FeedbackModel):
+    temp_path = os.path.join(TEMP_FEEDBACK_DIR, f"{data.request_id}.jpg")
+    
+    # Kiểm tra xem ảnh tạm có tồn tại không
+    if not os.path.exists(temp_path):
+        raise HTTPException(status_code=404, detail="Không tìm thấy dữ liệu yêu cầu hoặc đã được phản hồi.")
+    
+    try:
+        if data.feedback == "correct":
+            # Nếu dự đoán đúng, chuyển ảnh vào thư mục 'correct'
+            dest_dir = os.path.join(FEEDBACK_DIR, "correct", data.prediction)
+        else:
+            # Nếu dự đoán sai, chuyển ảnh vào thư mục 'incorrect/nhãn_đúng'
+            grade = data.corrected_grade if data.corrected_grade else "unknown"
+            dest_dir = os.path.join(FEEDBACK_DIR, "incorrect", f"grade_{grade}")
+            
+        os.makedirs(dest_dir, exist_ok=True)
+        shutil.move(temp_path, os.path.join(dest_dir, f"{data.request_id}.jpg"))
+        
+        return {"status": "success", "message": "Cảm ơn bạn đã phản hồi đóng góp!"}
+        
+    except Exception as e:
+        logger.error(f"Lỗi xử lý lưu feedback: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi lưu trữ dữ liệu phản hồi.")
 
 @app.get("/")
 @limiter.limit("60/minute")

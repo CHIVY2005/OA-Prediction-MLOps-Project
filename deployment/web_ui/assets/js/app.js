@@ -1,11 +1,23 @@
 const API_URL = "/predict";
 
+let currentRequestId = null;
+let currentPrediction = null;
+
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const uploadSection = document.getElementById('upload-section');
 const loadingContainer = document.getElementById('loading-container');
 const resultSection = document.getElementById('result-section');
 const resetBtn = document.getElementById('reset-btn');
+
+// Feedback elements
+const feedbackContainer = document.getElementById('feedback-container');
+const btnFeedbackYes = document.getElementById('btn-feedback-yes');
+const btnFeedbackNo = document.getElementById('btn-feedback-no');
+const correctedSelection = document.getElementById('corrected-selection');
+const correctGradeSelect = document.getElementById('correct-grade-select');
+const btnSubmitFeedback = document.getElementById('btn-submit-feedback');
+const thankYouMsg = document.getElementById('thank-you-msg');
 
 // --- Event Listeners ---
 dropZone.addEventListener('click', () => fileInput.click());
@@ -35,6 +47,34 @@ fileInput.addEventListener('change', () => {
 });
 
 resetBtn.addEventListener('click', resetApp);
+
+// Feedback Event Listeners
+btnFeedbackYes.addEventListener('click', async () => {
+    btnFeedbackYes.classList.add('active');
+    btnFeedbackNo.classList.remove('active');
+    btnFeedbackYes.disabled = true;
+    btnFeedbackNo.disabled = true;
+    correctedSelection.classList.add('hidden');
+    
+    await submitFeedback('correct', null);
+});
+
+btnFeedbackNo.addEventListener('click', () => {
+    btnFeedbackNo.classList.add('active');
+    btnFeedbackYes.classList.remove('active');
+    correctedSelection.classList.remove('hidden');
+    thankYouMsg.classList.add('hidden');
+});
+
+btnSubmitFeedback.addEventListener('click', async () => {
+    const correctedGrade = correctGradeSelect.value;
+    btnSubmitFeedback.disabled = true;
+    btnFeedbackYes.disabled = true;
+    btnFeedbackNo.disabled = true;
+    
+    await submitFeedback('incorrect', correctedGrade);
+    btnSubmitFeedback.disabled = false;
+});
 
 // --- Functions ---
 function handleFile(file) {
@@ -75,7 +115,10 @@ async function uploadImage(file) {
         }
 
         const data = await response.json();
+        currentRequestId = data.request_id;
+        currentPrediction = data.prediction;
         showResult(data);
+        resetFeedbackUI();
 
     } catch (error) {
         console.error(error);
@@ -101,9 +144,59 @@ function showResult(data) {
     }
 }
 
+function resetFeedbackUI() {
+    correctedSelection.classList.add('hidden');
+    thankYouMsg.classList.add('hidden');
+    btnFeedbackYes.classList.remove('active');
+    btnFeedbackNo.classList.remove('active');
+    btnFeedbackYes.disabled = false;
+    btnFeedbackNo.disabled = false;
+    correctGradeSelect.value = "0";
+}
+
 function resetApp() {
     resultSection.classList.add('hidden');
     loadingContainer.classList.add('hidden');
     uploadSection.classList.remove('hidden');
     fileInput.value = '';
+    currentRequestId = null;
+    currentPrediction = null;
+    resetFeedbackUI();
+}
+
+async function submitFeedback(feedbackType, correctedGrade) {
+    if (!currentRequestId) return;
+    
+    try {
+        const response = await fetch('/feedback', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                request_id: currentRequestId,
+                feedback: feedbackType,
+                prediction: currentPrediction,
+                corrected_grade: correctedGrade
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            const detail = errorData && errorData.detail ? errorData.detail : response.statusText;
+            throw new Error(`API Error (${response.status}): ${detail}`);
+        }
+
+        // Show success
+        correctedSelection.classList.add('hidden');
+        thankYouMsg.classList.remove('hidden');
+
+    } catch (error) {
+        console.error(error);
+        alert(`Feedback submission failed: ${error.message}`);
+        btnFeedbackYes.disabled = false;
+        btnFeedbackNo.disabled = false;
+        btnFeedbackYes.classList.remove('active');
+        btnFeedbackNo.classList.remove('active');
+    }
 }
