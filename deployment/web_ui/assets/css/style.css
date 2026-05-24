@@ -283,6 +283,11 @@ header h1 {
     margin-top: 0.5rem;
 }
 
+/* Utilities */
+.hidden {
+    display: none !important;
+}
+
 /* Feedback Section */
 .feedback-container {
     background: var(--card-bg);
