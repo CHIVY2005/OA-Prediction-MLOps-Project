@@ -1,5 +1,5 @@
 outs:
-- md5: 6384b3c897dd7e6d898503fbaf931485
-  size: 16352095
+- md5: 0054f75dc4a08b648f80c423825b2b1f
+  size: 16358615
   hash: md5
   path: best_knee_model.pth
