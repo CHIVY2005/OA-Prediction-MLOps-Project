@@ -177,8 +177,8 @@ def run_retraining(min_feedback_samples: int = 1):
     # Sử dụng learning rate nhỏ hơn để thực hiện fine-tuning tránh làm mất tri thức cũ
     retrain_lr = lr * 0.5
     criterion = nn.CrossEntropyLoss(weight=loss_weights, label_smoothing=0.1)
-    optimizer = optim.AdamW(model.parameters(), lr=retrain_lr, weight_decay=1e-2)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
+    optimizer = optim.AdamW(model.parameters(), lr=retrain_lr, weight_decay=1e-3)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=3)
 
     # 6. Thiết lập MLflow Tracking
     mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
@@ -230,7 +230,7 @@ def run_retraining(min_feedback_samples: int = 1):
             avg_val_loss = val_loss / len(val_loader.dataset)
             val_acc = np.mean(np.array(all_preds) == np.array(all_labels))
 
-            scheduler.step(avg_val_loss)
+            scheduler.step(val_acc)
             current_lr = optimizer.param_groups[0]['lr']
 
             print(f"[Retrain] Epoch {epoch+1}/{epochs} | Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f} | Acc: {val_acc:.4f} | LR: {current_lr:.1e}")

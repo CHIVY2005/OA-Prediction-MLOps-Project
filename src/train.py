@@ -27,9 +27,9 @@ def train():
     
     # 2. Thiết lập Loss & Optimizer (Hàm mất mát và Bộ tối ưu)
     criterion = nn.CrossEntropyLoss(weight=loss_weights, label_smoothing=0.1)
-    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-2)
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-3)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.1, patience=3
+        optimizer, mode='max', factor=0.1, patience=3
     )
 
     # 3. Thiết lập MLflow (Hỗ trợ Tracking từ xa hoặc tự động chuyển về local)
@@ -88,7 +88,7 @@ def train():
             val_acc = np.mean(np.array(all_preds) == np.array(all_labels))
 
             # Cập nhật learning rate qua scheduler
-            scheduler.step(avg_val_loss)
+            scheduler.step(val_acc)
             current_lr = optimizer.param_groups[0]['lr']
             
             # In thông tin và log metric lên MLflow
