@@ -4,7 +4,10 @@ import os
 import io
 import base64
 import cv2
+import re
+import threading
 import torch
+from contextlib import asynccontextmanager
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
@@ -12,8 +15,7 @@ from fastapi.staticfiles import StaticFiles
 import time
 import json
 import logging
-from datetime import datetime
-from collections import defaultdict
+from datetime import datetime, timezone
 import requests
 from dotenv import load_dotenv
 import numpy as np
@@ -39,6 +41,9 @@ from src.model import build_model
 from src.data_loader import get_transforms
 from src.utils import get_heatmap
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
 # --- CẤU HÌNH LOGGING ---
 # Cấu hình logger để xuất ra JSON
 logger = logging.getLogger("oa_prediction")
@@ -55,7 +60,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record):
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "level": record.levelname,
             "message": record.getMessage(),
             "module": record.module,
@@ -174,7 +179,7 @@ def send_discord_prediction(image_bytes: bytes, filename: str, result: str, conf
                     ],
                     # Móc tấm ảnh vừa đính kèm vào thẳng khối Embed này
                     "image": {"url": f"attachment://{filename}"},
-                    "footer": {"text": f"Dự án OA Prediction | Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"}
+                    "footer": {"text": f"Dự án OA Prediction | Time: {utc_now().strftime('%Y-%m-%d %H:%M:%S')}"}
                 }
             ]
         }
@@ -210,7 +215,7 @@ def send_discord_invalid_upload(image_bytes: bytes, filename: str, confidence: f
                         {"name": "Trạng thái", "value": "❌ Đã từ chối & Yêu cầu gửi lại", "inline": True}
                     ],
                     "image": {"url": f"attachment://{filename}"},
-                    "footer": {"text": f"Dự án OA Prediction | Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"}
+                    "footer": {"text": f"Dự án OA Prediction | Time: {utc_now().strftime('%Y-%m-%d %H:%M:%S')}"}
                 }
             ]
         }
@@ -236,7 +241,15 @@ from slowapi.errors import RateLimitExceeded
 limiter = Limiter(key_func=get_remote_address)
 
 # --- KHỞI TẠO APP (QUAN TRỌNG: Uvicorn tìm biến này) ---
-app = FastAPI(title="Knee Osteoarthritis Detection API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    threading.Thread(target=load_vn_cidr, daemon=True).start()
+    notify_startup()
+    load_predictor()
+    load_validation_model()
+    yield
+
+app = FastAPI(title="Knee Osteoarthritis Detection API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -347,13 +360,6 @@ model = None
 validation_model = None
 device = CFG['train']['device']
 
-@app.on_event("startup")
-def startup_events():
-    import threading
-    # Load CIDR in background to not block fast startup
-    threading.Thread(target=load_vn_cidr, daemon=True).start()
-
-@app.on_event("startup")
 def notify_startup():
     space_id = os.getenv("SPACE_ID")
     if space_id:
@@ -446,7 +452,6 @@ def download_best_model_from_mlflow(dest_path: str) -> bool:
         print(f"[MLflow ERROR] Loi khi ket noi va tai tu MLflow: {e}")
         return False
 
-@app.on_event("startup")
 def load_predictor():
     global model
     try:
@@ -488,7 +493,6 @@ def load_predictor():
         print(f"[ERROR] Loi load model: {e}")
         send_discord_alert(f"Failed to load model on startup!\nError: `{str(e)}`")
 
-@app.on_event("startup")
 def load_validation_model():
     global validation_model
     try:
@@ -611,29 +615,30 @@ def debug_env():
 @limiter.limit("10/minute")
 async def predict(request: Request, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     start_time = time.time()
+    filename = os.path.basename(file.filename or "")
     # Input Validation
     # Check file extension
-    file_extension = os.path.splitext(file.filename)[1].lower()
+    file_extension = os.path.splitext(filename)[1].lower()
     if file_extension not in ALLOWED_EXTENSIONS:
         logger.warning("Invalid file type", extra={
-            "file_name": file.filename,
+            "file_name": filename,
             "extension": file_extension,
-            "allowed": list(ALLOWED_EXTENSIONS)
+            "allowed": sorted(ALLOWED_EXTENSIONS)
         })
-        raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {list(ALLOWED_EXTENSIONS)}")
+        raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {sorted(ALLOWED_EXTENSIONS)}")
     
     # Check file size
     contents = await file.read()
     if len(contents) > MAX_FILE_SIZE:
         logger.warning("File too large", extra={
-            "file_name": file.filename,
+            "file_name": filename,
             "size_bytes": len(contents),
             "max_size_bytes": MAX_FILE_SIZE
         })
         # Send Discord alert for oversized file
         send_discord_alert(
             "Oversized file blocked\n"
-            f"Filename: `{file.filename}`\n"
+            f"Filename: `{filename}`\n"
             f"Size: `{len(contents) / 1024 / 1024:.2f} MB`\n"
             f"Limit: `{MAX_FILE_SIZE / 1024 / 1024:.2f} MB`"
         )
@@ -644,7 +649,7 @@ async def predict(request: Request, background_tasks: BackgroundTasks, file: Upl
         image = Image.open(io.BytesIO(contents)).convert("RGB")
     except Exception as e:
         logger.warning("Invalid image file", extra={
-            "file_name": file.filename,
+            "file_name": filename,
             "error": str(e)
         })
         raise HTTPException(status_code=400, detail="Invalid image file")
@@ -653,14 +658,14 @@ async def predict(request: Request, background_tasks: BackgroundTasks, file: Upl
     is_valid, validation_conf = is_valid_knee_xray(image)
     if not is_valid:
         logger.warning("Uploaded image is not a knee X-ray (gửi bậy)", extra={
-            "file_name": file.filename,
+            "file_name": filename,
             "validation_confidence": validation_conf
         })
         # Gửi cảnh báo lên Discord webhook qua background task
         background_tasks.add_task(
             send_discord_invalid_upload,
             image_bytes=contents,
-            filename=file.filename,
+            filename=filename,
             confidence=validation_conf
         )
         return JSONResponse(
@@ -704,13 +709,13 @@ async def predict(request: Request, background_tasks: BackgroundTasks, file: Upl
         
     except Exception as e:
         logger.warning("Heatmap generation failed", extra={
-            "file_name": file.filename,
+            "file_name": filename,
             "error": str(e)
         })
         # Neu loi heatmap, API van tra ve prediction thay vi sap voi 500.
     
     logger.info("Prediction made", extra={
-            "file_name": file.filename,
+            "file_name": filename,
             "prediction": class_name,
             "confidence": confidence,
             "has_heatmap": bool(heatmap_base64)
@@ -720,10 +725,10 @@ async def predict(request: Request, background_tasks: BackgroundTasks, file: Upl
     
     # Giải mã heatmap để gửi lên kênh Monitor (nếu heatmap được tạo thành công)
     img_bytes_to_send = contents
-    discord_filename = file.filename
+    discord_filename = filename
     if heatmap_base64:
         img_bytes_to_send = base64.b64decode(heatmap_base64)
-        discord_filename = f"heatmap_{file.filename}"
+        discord_filename = f"heatmap_{filename}"
 
     # Đẩy việc gửi Discord cho Background Task (Bị vô hiệu hóa vì webhook chỉ nhận thông báo gửi bậy)
     # background_tasks.add_task(
@@ -746,7 +751,7 @@ async def predict(request: Request, background_tasks: BackgroundTasks, file: Upl
     return {
         "status": "success",
         "request_id": request_id,
-        "filename": file.filename,
+        "filename": filename,
         "prediction": class_name,
         "confidence": f"{confidence * 100:.1f}%",
         "heatmap_base64": heatmap_base64
@@ -758,28 +763,59 @@ class FeedbackModel(BaseModel):
     prediction: str # Nhãn mô hình dự đoán (ví dụ: "0")
     corrected_grade: Optional[str] = None  # Nhãn đúng thực tế (ví dụ: "2")
 
+SAFE_FEEDBACK_SEGMENT_RE = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+ALLOWED_GRADES = {str(grade) for grade in CFG['data']['class_names']}
+
+def validate_feedback_segment(field_name: str, value: str) -> str:
+    if not SAFE_FEEDBACK_SEGMENT_RE.fullmatch(value or ""):
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
+    return value
+
+def validate_grade(field_name: str, value: str) -> str:
+    grade = validate_feedback_segment(field_name, value)
+    if grade not in ALLOWED_GRADES:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
+    return grade
+
+def safe_feedback_path(base_dir: str, *parts: str) -> str:
+    base_abs = os.path.abspath(base_dir)
+    target_abs = os.path.abspath(os.path.join(base_abs, *parts))
+    if os.path.commonpath([base_abs, target_abs]) != base_abs:
+        raise HTTPException(status_code=400, detail="Invalid feedback path")
+    return target_abs
+
 @app.post("/feedback")
 async def collect_feedback(data: FeedbackModel):
-    temp_path = os.path.join(TEMP_FEEDBACK_DIR, f"{data.request_id}.jpg")
+    request_id = validate_feedback_segment("request_id", data.request_id)
+    prediction = validate_grade("prediction", data.prediction)
+    feedback = data.feedback.strip().lower()
+    if feedback not in {"correct", "incorrect"}:
+        raise HTTPException(status_code=400, detail="Invalid feedback")
+
+    temp_path = safe_feedback_path(TEMP_FEEDBACK_DIR, f"{request_id}.jpg")
     
     # Kiểm tra xem ảnh tạm có tồn tại không
     if not os.path.exists(temp_path):
         raise HTTPException(status_code=404, detail="Không tìm thấy dữ liệu yêu cầu hoặc đã được phản hồi.")
     
     try:
-        if data.feedback == "correct":
+        if feedback == "correct":
             # Nếu dự đoán đúng, chuyển ảnh vào thư mục 'correct'
-            dest_dir = os.path.join(FEEDBACK_DIR, "correct", data.prediction)
+            dest_dir = safe_feedback_path(FEEDBACK_DIR, "correct", prediction)
         else:
             # Nếu dự đoán sai, chuyển ảnh vào thư mục 'incorrect/nhãn_đúng'
-            grade = data.corrected_grade if data.corrected_grade else "unknown"
-            dest_dir = os.path.join(FEEDBACK_DIR, "incorrect", f"grade_{grade}")
+            if not data.corrected_grade:
+                raise HTTPException(status_code=400, detail="corrected_grade is required when feedback is incorrect")
+            grade = validate_grade("corrected_grade", data.corrected_grade)
+            dest_dir = safe_feedback_path(FEEDBACK_DIR, "incorrect", f"grade_{grade}")
             
         os.makedirs(dest_dir, exist_ok=True)
-        shutil.move(temp_path, os.path.join(dest_dir, f"{data.request_id}.jpg"))
+        shutil.move(temp_path, safe_feedback_path(dest_dir, f"{request_id}.jpg"))
         
         return {"status": "success", "message": "Cảm ơn bạn đã phản hồi đóng góp!"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Lỗi xử lý lưu feedback: {e}")
         raise HTTPException(status_code=500, detail="Lỗi lưu trữ dữ liệu phản hồi.")
@@ -805,7 +841,7 @@ def health_check(request: Request):
         "status": "healthy", 
         "model_loaded": model is not None,
         "device": str(device),
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now().isoformat()
     }
 
 # Exception handlers
